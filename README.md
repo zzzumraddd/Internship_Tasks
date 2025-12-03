@@ -98,18 +98,13 @@ If both commands return **no output**, there are no remaining browser processes.
 
 ---
 
-## ℹ️ Notes
+# Tasks 4 and 5
 
-- These commands require typical user privileges; some processes may belong to `root` or system services and are listed but should **not** be killed unless you know what they do.
-- This README is not final. More monitoring, troubleshooting and automation tasks will be added later as the project grows.
-
----
-
-### 4. Playing with `nice` and `renice` (CPU throttling)
+## 4. Playing with `nice` and `renice` (CPU throttling)
 
 Goal: see how changing the *nice* value affects process scheduling.
 
-#### Steps
+### Steps
 
 ```bash
 # 1) Start a CPU-bound process with default nice (0)
@@ -126,4 +121,142 @@ renice -n 5 -p 30412
 
 # 5) Observe both processes in top
 top
+```
+
+### Observations
+
+Example `top` output:
+
+```text
+PID    USER      PR  NI  %CPU  COMMAND
+30410  akbaral+  20   0  99.0  yes
+30412  akbaral+  25   5  97.7  yes
+```
+
+- The first `yes` process is running with **NI = 0** (default).  
+- The second `yes` process was changed with `renice` to **NI = 5**, so its **PR** (scheduler priority) increased from 20 to 25 (higher PR = lower priority).
+- Linux uses nice values in the range **-20..19**.  
+  - Lower NI (e.g. 0, -5) → higher priority, more CPU time when there is contention.  
+  - Higher NI (e.g. 5, 19) → “polite” process, gets CPU time after higher-priority tasks.
+
+On my VM there are multiple CPU cores, so both `yes` processes can still reach ~100% CPU when the system is otherwise idle.  
+However, if the CPU is busy, the kernel will schedule the process with **NI = 0 (PR 20)** before the one with **NI = 5 (PR 25)**, demonstrating how `nice`/`renice` influence CPU scheduling.
+
+---
+
+## 5. `/proc` Investigation
+
+For this task I started a `sleep 1000` process and explored its entry under `/proc`.
+
+### `/proc/<pid>/cmdline`
+
+```bash
+# find the PID of sleep
+ps aux | grep "sleep 1000"
+
+# example PID: 30747
+cd /proc/30747
+sudo cat cmdline
+```
+
+Output:
+
+```text
+sleep1000
+```
+
+`cmdline` is a file that contains the **exact command line** used to start the process, including its arguments.  
+For `sleep 1000` it shows `sleep1000`.
+
+---
+
+### `/proc/<pid>/status`
+
+```bash
+cat status
+```
+
+Snippet of the output:
+
+```text
+Name:   sleep
+State:  S (sleeping)
+Pid:    30747
+PPid:   28945
+Uid:    1000   1000   1000   1000
+Gid:    1005   1005   1005   1005
+VmSize: 5400 kB
+VmRSS:  1992 kB
+Threads: 1
+voluntary_ctxt_switches: 2
+nonvoluntary_ctxt_switches: 1
+...
+```
+
+`status` is a human-readable summary of the process. It shows:
+
+- identity (`Name`, `Pid`, `PPid`)
+- current state (`S` = sleeping)
+- user/group IDs
+- memory usage (`VmSize`, `VmRSS`, etc.)
+- number of threads and context-switch statistics
+
+---
+
+### `/proc/<pid>/fd/`
+
+```bash
+cd fd
+ls
+ls -l
+```
+
+Output:
+
+```text
+0  1  2
+
+0 -> /dev/pts/0
+1 -> /dev/pts/0
+2 -> /dev/pts/0
+```
+
+`fd/` is a directory of **open file descriptors**:
+
+- `0` = stdin  
+- `1` = stdout  
+- `2` = stderr  
+
+All three pointed to my terminal (`/dev/pts/0`), which shows that the terminal is just another file device that processes read from and write to.
+
+---
+
+### Extra observation: exploring `/proc` and PID 1
+
+```bash
+cd /proc
+ls          # shows many PIDs plus files like cpuinfo, meminfo, uptime
+
+cd /proc/1
+ls
+```
+
+For PID 1 (systemd) I saw messages like:
+
+```text
+ls: cannot read symbolic link 'cwd': Permission denied
+ls: cannot read symbolic link 'root': Permission denied
+ls: cannot read symbolic link 'exe': Permission denied
+```
+
+This shows that `/proc` exposes detailed information about processes, but **access to some data for system processes is restricted** unless you are root.
+
+---
+
+### Summary
+
+- `cmdline` → launch command and arguments  
+- `status` → detailed process state (IDs, memory, threads, context switches)  
+- `fd/` → all open file descriptors (stdin/stdout/stderr, etc.)  
+- `/proc` is a virtual filesystem representing live process and kernel state, with permissions enforced for sensitive entries.
 
