@@ -102,3 +102,28 @@ If both commands return **no output**, there are no remaining browser processes.
 
 - These commands require typical user privileges; some processes may belong to `root` or system services and are listed but should **not** be killed unless you know what they do.
 - This README is not final. More monitoring, troubleshooting and automation tasks will be added later as the project grows.
+
+---
+
+### 4. Playing with `nice` and `renice` (CPU throttling)
+
+Goal: see how changing the *nice* value affects process scheduling.
+
+#### Steps
+
+```bash
+# 1) Start a CPU-bound process with default nice (0)
+yes > /dev/null &
+
+# 2) Start a second CPU-bound process
+yes > /dev/null &
+
+# 3) Check their PIDs and current nice values
+ps -C yes -o pid,ni,cmd
+
+# 4) Lower the priority of one of them (example PID 30412)
+renice -n 5 -p 30412
+
+# 5) Observe both processes in top
+top
+
