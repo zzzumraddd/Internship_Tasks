@@ -260,3 +260,151 @@ This shows that `/proc` exposes detailed information about processes, but **acce
 - `fd/` → all open file descriptors (stdin/stdout/stderr, etc.)  
 - `/proc` is a virtual filesystem representing live process and kernel state, with permissions enforced for sensitive entries.
 
+---
+
+# Task 6
+
+## 🎯 Task Description
+
+In this task I practiced:
+
+- Starting a long‑running command in the **foreground**
+- Suspending it with `Ctrl+Z` so it becomes a **stopped job**
+- Listing background jobs with `jobs`
+- Resuming a stopped job in the **background** with `bg`
+- Bringing a job back to the **foreground** with `fg`
+
+All commands were run in a Bash shell on Linux.
+
+---
+
+## 🧪 Steps I Performed
+
+### 1. Start a foreground command
+
+I started a command that runs for a while, for example:
+
+```bash
+sleep 100
+```
+
+or
+
+```bash
+yes > /dev/null
+```
+
+This command initially runs in the **foreground**, blocking the terminal prompt.
+
+---
+
+### 2. Suspend the command (send it to the background as stopped)
+
+While the command was running in the foreground, I pressed:
+
+```text
+Ctrl+Z
+```
+
+The shell output showed something like:
+
+```text
+^Z
+[1]+  Stopped                 sleep 100
+```
+
+Now this command is registered as **job 1** in a *stopped* state.
+
+---
+
+### 3. List current jobs
+
+I checked the list of jobs with:
+
+```bash
+jobs -l
+```
+
+Example output:
+
+```text
+[1]+  31695 Stopped            sleep 100
+```
+
+- `[1]` – job number
+- `31695` – process ID (PID)
+- `Stopped` – current state
+- `sleep 100` – original command
+
+---
+
+### 4. Resume the job in the background
+
+To continue the stopped job **in the background**, I ran:
+
+```bash
+bg %1
+```
+
+Here:
+
+- `bg` means **background**
+- `%1` refers to job number 1
+
+After that, `jobs -l` showed the job as running:
+
+```text
+[1]+  31695 Running            sleep 100 &
+```
+
+The `&` at the end indicates that it is now running in the background, and my shell prompt is free again.
+
+---
+
+### 5. Bring the job back to the foreground
+
+To bring the same job from the background back to the **foreground**, I used:
+
+```bash
+fg %1
+```
+
+- `fg` means **foreground**
+- `%1` again refers to job number 1
+
+After this command, the terminal attached to that job, and I no longer saw the shell prompt until the job finished (or I interrupted it).
+
+---
+
+### 6. Stopping the job completely (optional)
+
+For commands that do not end quickly (like `yes > /dev/null`), I did the following to terminate them:
+
+1. Bring the job to the foreground (if it was in the background):
+
+   ```bash
+   fg %1
+   ```
+
+2. Then stop it with:
+
+   ```text
+   Ctrl+C
+   ```
+
+This sends `SIGINT` and terminates the process.
+
+---
+
+## 🔍 What I Demonstrated
+
+With this task I showed that I can:
+
+- Use `Ctrl+Z` to suspend a foreground process
+- Use `jobs` / `jobs -l` to inspect current jobs
+- Use `bg %n` to resume a job in the background
+- Use `fg %n` to bring a job back to the foreground
+- Understand the difference between **foreground**, **background**, and **stopped** jobs
+
+This covers the basic job control commands required for the exercise.
+
