@@ -408,3 +408,85 @@ With this task I showed that I can:
 
 This covers the basic job control commands required for the exercise.
 
+---
+
+# 7. Graceful Ctrl+C (SIGINT) Handling
+
+## Goal
+
+Create a Bash script that simulates a long‑running process and **cleans up gracefully** when the user presses `Ctrl+C` (SIGINT).  
+When SIGINT is received, the script must print:
+
+> `Caught SIGINT, cleaning up…`
+
+and then exit cleanly.
+
+---
+
+## Script: `long_process.sh`
+
+```bash
+#!/bin/bash
+
+cleanup() {
+    echo "Caught Ctrl+C (SIGINT), performing cleanup..."
+    # Add your cleanup commands here
+    echo "Cleanup finished."
+    exit 0
+}
+
+# Trap the SIGINT signal (Ctrl+C)
+trap 'cleanup' SIGINT
+
+echo "Process running. Press Ctrl+C to stop gracefully."
+
+# Example long‑running task
+while true; do
+    sleep 1
+done
+```
+
+---
+
+## How I ran and tested it
+
+1. Opened the file in `vim` and pasted the script:
+
+   ```bash
+   vim long_process.sh
+   ```
+
+2. Made the script executable:
+
+   ```bash
+   chmod +x long_process.sh
+   ```
+
+3. Started the script in the foreground:
+
+   ```bash
+   ./long_process.sh
+   ```
+
+4. While it was running, pressed `Ctrl+C`.
+
+   Example output:
+
+   ```text
+   Process running. Press Ctrl+C to stop gracefully.
+   ^CCaught Ctrl+C (SIGINT), performing cleanup...
+   Cleanup finished.
+   ```
+
+The script exits **after** running the `cleanup` function, so any temporary files or background work could be cleaned up in that block.
+
+---
+
+## What this demonstrates
+
+- Using a **signal handler** in Bash with `trap`.
+- Handling `SIGINT` (Ctrl+C) so the script can:
+  - Print a clear message for the user.
+  - Run custom cleanup logic.
+  - Exit with status `0` after finishing cleanup.
+
