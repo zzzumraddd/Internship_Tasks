@@ -25,7 +25,7 @@ ps aux | awk '$8 ~ /^Z/ { print }'
 
 ### Result (current run)
 
-In our run, the command produced **no output**, which means there are **no zombie processes** on the system at the moment.
+The command produced **no output**, which means there were **no zombie processes** on the system at that moment.
 
 ---
 
@@ -45,7 +45,7 @@ ps aux | sort -k3 -rn | head -10
 - `sort -k3 -rn` – sort by the 3rd column, numeric, reverse (highest first).  
 - `head -10` – show only the first 10 lines (top 10 processes).
 
-> Note: To view top 10 processes by **memory usage**, we can sort by column 4:
+> To view the top 10 processes by **memory usage**, sort by column 4:
 >
 > ```bash
 > ps aux | sort -k4 -rn | head -10
@@ -72,7 +72,7 @@ pgrep -l firefox
 - `pgrep -l` prints matching PIDs and process names.  
 - If nothing is printed → no such processes are running.
 
-In our run, both commands returned **no output**, so no Chrome/Firefox processes were active.
+In my run, both commands returned **no output**, so no Chrome/Firefox processes were active.
 
 ### Step 2 – Kill all browser processes (if any)
 
@@ -98,11 +98,9 @@ If both commands return **no output**, there are no remaining browser processes.
 
 ---
 
-# Tasks 4 and 5
+## ✅ Task 4 – Play with `nice` and `renice` (CPU Throttling)
 
-## 4. Playing with `nice` and `renice` (CPU throttling)
-
-Goal: see how changing the *nice* value affects process scheduling.
+**Goal:** Observe how changing the *nice* value affects process scheduling and CPU usage.
 
 ### Steps
 
@@ -125,7 +123,7 @@ top
 
 ### Observations
 
-Example `top` output:
+Example `top` snippet:
 
 ```text
 PID    USER      PR  NI  %CPU  COMMAND
@@ -134,39 +132,39 @@ PID    USER      PR  NI  %CPU  COMMAND
 ```
 
 - The first `yes` process is running with **NI = 0** (default).  
-- The second `yes` process was changed with `renice` to **NI = 5**, so its **PR** (scheduler priority) increased from 20 to 25 (higher PR = lower priority).
-- Linux uses nice values in the range **-20..19**.  
-  - Lower NI (e.g. 0, -5) → higher priority, more CPU time when there is contention.  
-  - Higher NI (e.g. 5, 19) → “polite” process, gets CPU time after higher-priority tasks.
+- The second `yes` process was changed with `renice` to **NI = 5**, so its **PR** (scheduler priority) increased from 20 to 25 (higher PR = lower priority).  
+- Linux uses nice values in the range **-20..19**:  
+  - Lower NI (e.g. 0, -5) → higher priority, more CPU time on contention.  
+  - Higher NI (e.g. 5, 19) → “polite” process, gets CPU time after higher‑priority tasks.
 
-On my VM there are multiple CPU cores, so both `yes` processes can still reach ~100% CPU when the system is otherwise idle.  
-However, if the CPU is busy, the kernel will schedule the process with **NI = 0 (PR 20)** before the one with **NI = 5 (PR 25)**, demonstrating how `nice`/`renice` influence CPU scheduling.
+On this VM there are multiple CPU cores, so both `yes` processes can still reach ~100% CPU when the system is otherwise idle.  
+When the CPU is busy, the kernel prefers the process with **NI = 0 (PR 20)** over the one with **NI = 5 (PR 25)**, demonstrating how `nice`/`renice` influence scheduling.
 
 ---
 
-## 5. `/proc` Investigation
+## ✅ Task 5 – `/proc` Investigation
 
 For this task I started a `sleep 1000` process and explored its entry under `/proc`.
 
 ### `/proc/<pid>/cmdline`
 
 ```bash
-# find the PID of sleep
+# Find the PID of sleep
 ps aux | grep "sleep 1000"
 
-# example PID: 30747
+# Example PID: 30747
 cd /proc/30747
-sudo cat cmdline
+cat cmdline
 ```
 
-Output:
+Example output:
 
 ```text
 sleep1000
 ```
 
-`cmdline` is a file that contains the **exact command line** used to start the process, including its arguments.  
-For `sleep 1000` it shows `sleep1000`.
+`cmdline` contains the **exact command line** used to start the process, including its arguments.  
+For `sleep 1000` it shows `sleep1000` (arguments are stored without spaces, separated by NUL characters internally).
 
 ---
 
@@ -193,13 +191,13 @@ nonvoluntary_ctxt_switches: 1
 ...
 ```
 
-`status` is a human-readable summary of the process. It shows:
+`status` is a human‑readable summary of the process. It shows:
 
-- identity (`Name`, `Pid`, `PPid`)
-- current state (`S` = sleeping)
-- user/group IDs
-- memory usage (`VmSize`, `VmRSS`, etc.)
-- number of threads and context-switch statistics
+- Identity (`Name`, `Pid`, `PPid`)  
+- Current state (`S` = sleeping)  
+- User/group IDs  
+- Memory usage (`VmSize`, `VmRSS`, etc.)  
+- Number of threads and context‑switch statistics
 
 ---
 
@@ -211,7 +209,7 @@ ls
 ls -l
 ```
 
-Output:
+Example output:
 
 ```text
 0  1  2
@@ -253,32 +251,30 @@ This shows that `/proc` exposes detailed information about processes, but **acce
 
 ---
 
-### Summary
+### Summary for Task 5
 
-- `cmdline` → launch command and arguments  
-- `status` → detailed process state (IDs, memory, threads, context switches)  
-- `fd/` → all open file descriptors (stdin/stdout/stderr, etc.)  
+- `cmdline` → launch command and arguments.  
+- `status` → detailed process state (IDs, memory, threads, context switches).  
+- `fd/` → all open file descriptors (stdin/stdout/stderr, etc.).  
 - `/proc` is a virtual filesystem representing live process and kernel state, with permissions enforced for sensitive entries.
 
 ---
 
-# Task 6
+## ✅ Task 6 – Job Control: Foreground, Background and Stopped Jobs
 
-## 🎯 Task Description
+### 🎯 Task Description
 
 In this task I practiced:
 
-- Starting a long‑running command in the **foreground**
-- Suspending it with `Ctrl+Z` so it becomes a **stopped job**
-- Listing background jobs with `jobs`
-- Resuming a stopped job in the **background** with `bg`
-- Bringing a job back to the **foreground** with `fg`
+- Starting a long‑running command in the **foreground**  
+- Suspending it with `Ctrl+Z` so it becomes a **stopped job**  
+- Listing background jobs with `jobs`  
+- Resuming a stopped job in the **background** with `bg`  
+- Bringing a job back to the **foreground** with `fg`  
 
 All commands were run in a Bash shell on Linux.
 
 ---
-
-## 🧪 Steps I Performed
 
 ### 1. Start a foreground command
 
@@ -306,7 +302,7 @@ While the command was running in the foreground, I pressed:
 Ctrl+Z
 ```
 
-The shell output showed something like:
+The shell showed something like:
 
 ```text
 ^Z
@@ -331,10 +327,10 @@ Example output:
 [1]+  31695 Stopped            sleep 100
 ```
 
-- `[1]` – job number
-- `31695` – process ID (PID)
-- `Stopped` – current state
-- `sleep 100` – original command
+- `[1]` – job number.  
+- `31695` – process ID (PID).  
+- `Stopped` – current state.  
+- `sleep 100` – original command.
 
 ---
 
@@ -348,8 +344,8 @@ bg %1
 
 Here:
 
-- `bg` means **background**
-- `%1` refers to job number 1
+- `bg` means **background**.  
+- `%1` refers to job number 1.
 
 After that, `jobs -l` showed the job as running:
 
@@ -369,14 +365,14 @@ To bring the same job from the background back to the **foreground**, I used:
 fg %1
 ```
 
-- `fg` means **foreground**
-- `%1` again refers to job number 1
+- `fg` means **foreground**.  
+- `%1` again refers to job number 1.
 
 After this command, the terminal attached to that job, and I no longer saw the shell prompt until the job finished (or I interrupted it).
 
 ---
 
-### 6. Stopping the job completely (optional)
+### 6. Stop the job completely (optional)
 
 For commands that do not end quickly (like `yes > /dev/null`), I did the following to terminate them:
 
@@ -396,23 +392,21 @@ This sends `SIGINT` and terminates the process.
 
 ---
 
-## 🔍 What I Demonstrated
+### 🔍 What I Demonstrated in Task 6
 
-With this task I showed that I can:
+I showed that I can:
 
-- Use `Ctrl+Z` to suspend a foreground process
-- Use `jobs` / `jobs -l` to inspect current jobs
-- Use `bg %n` to resume a job in the background
-- Use `fg %n` to bring a job back to the foreground
-- Understand the difference between **foreground**, **background**, and **stopped** jobs
-
-This covers the basic job control commands required for the exercise.
+- Use `Ctrl+Z` to suspend a foreground process.  
+- Use `jobs` / `jobs -l` to inspect current jobs.  
+- Use `bg %n` to resume a job in the background.  
+- Use `fg %n` to bring a job back to the foreground.  
+- Understand the difference between **foreground**, **background**, and **stopped** jobs.
 
 ---
 
-# 7. Graceful Ctrl+C (SIGINT) Handling
+## ✅ Task 7 – Graceful Ctrl+C (SIGINT) Handling
 
-## Goal
+### Goal
 
 Create a Bash script that simulates a long‑running process and **cleans up gracefully** when the user presses `Ctrl+C` (SIGINT).  
 When SIGINT is received, the script must print:
@@ -423,7 +417,7 @@ and then exit cleanly.
 
 ---
 
-## Script: `long_process.sh`
+### Script: `long_process.sh`
 
 ```bash
 #!/bin/bash
@@ -448,9 +442,9 @@ done
 
 ---
 
-## How I ran and tested it
+### How I ran and tested it
 
-1. Opened the file in `vim` and pasted the script:
+1. Created/edited the file in `vim` and pasted the script:
 
    ```bash
    vim long_process.sh
@@ -478,15 +472,15 @@ done
    Cleanup finished.
    ```
 
-The script exits **after** running the `cleanup` function, so any temporary files or background work could be cleaned up in that block.
+The script exits **only after** the `cleanup` function finishes, so any temporary files or background work can be safely handled in that function.
 
 ---
 
-## What this demonstrates
+### What this demonstrates
 
-- Using a **signal handler** in Bash with `trap`.
-- Handling `SIGINT` (Ctrl+C) so the script can:
-  - Print a clear message for the user.
-  - Run custom cleanup logic.
+- Using a **signal handler** in Bash with `trap`.  
+- Handling `SIGINT` (`Ctrl+C`) so the script can:  
+  - Show a clear message to the user.  
+  - Run custom cleanup logic.  
   - Exit with status `0` after finishing cleanup.
 
