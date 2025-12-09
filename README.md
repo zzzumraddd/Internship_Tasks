@@ -21,15 +21,15 @@ ufw status verbose orqali to‘g‘ri ishlayotganini isbotlang.
     sudo systemctl start ufw
     3) ALLOWING THE FOLLOWING TRAFFIC THROUGH THE GIVEN IP ADRESS
     sudo ufw allow from 192.168.56.0/24 to any port <port-number>
-![App Screenshot](images/task1-1.png)
+![App Screenshot](images/task1-1.jpg)
 
     4) Deny or delete all incoming traffic by default system
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
-![App Screenshot](images/task1-2.png)
-![App Screenshot](images/task1-3.png)
+![App Screenshot](images/task1-2.jpg)
+![App Screenshot](images/task1-3.jpg)
 
 Moments occured and fixed outside the given task
 (P.s. some rules that needed to be deleted and how they were deleted)
-![App Screenshot](images/task1-4.png)
+![App Screenshot](images/task1-4.jpg)
 ## 2-task
