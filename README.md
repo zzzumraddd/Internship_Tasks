@@ -49,7 +49,8 @@ changed the zone to public because the trusted zone allows all traffic by defaul
 
     3)Restricting submission of DNS Queries to a sinlge ip address
     sudo firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address="192.168.100.100" service name="dns" accept'
-    ![App Screenshot](images/task2-2.png)
+ 
+![App Screenshot](images/task2-2.png)
 
 Firewalld rich rules provide an advanced, expressive language for defining granular firewall policies that go beyond basic port and service management. They offer precise control over network traffic, allowing rules based on source and destination addresses, logging, rate limiting, port forwarding, and masquerading (NAT). 
 
