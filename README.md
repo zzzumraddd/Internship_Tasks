@@ -150,3 +150,5 @@ So‘ngra,  orqali muammoni hal qiling.
  getsebool -a | grep httpd bilan boshlang.
 
 
+
+
