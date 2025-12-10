@@ -94,3 +94,59 @@ DNAT was configured to redirect incoming HTTP traffic on port 80 to the internal
 
 
 
+## 4-task
+
+Serverga kelayotgan 80-portdagi trafikni  10.10.10.10:8080 ga DNAT qiling.Shuningdek, chiqayotgan trafik uchun MASQUERADE yoqing (NAT qilish). Tashqi brauzerdan http://server_ip orqali kirilganda, aslida 10.10.10.10:8080 dan xizmat ko‘rsatilishi kerak.
+
+Preparing web directory
+    sudo mkdir -p /opt/public_html
+    echo "SELinux test page" | sudo tee /opt/       public_html/index.html
+    sudo chown -R nginx:nginx /opt/public_html
+    sudo chmod 755 /opt
+    sudo chmod 755 /opt/public_html
+    sudo chmod 644 /opt/public_html/index.html
+
+Configuring nginx root
+    sudo vim /etc/nginx/nginx.conf
+    
+Inserting
+    root /opt/public_html;
+    index index.html;
+
+Apply config
+    sudo nginx -t
+    sudo systemctl start nginx
+    sudo systemctl reload nginx
+
+Label directory with an invalid SELinux type:
+    sudo chcon -R -t default_t /opt/public_html
+
+Testing access
+    curl -I http://127.0.0.1/
+
+ ![App Screenshot](images/task4-1.png)
+
+ Install semanage 
+    sudo dnf install -y policycoreutils-python-utils
+
+    sudo semanage fcontext -a -t httpd_sys_content_t "/opt/public_html(/.*)?"
+    sudo restorecon -Rv /opt/public_html
+
+Testing again
+    curl -I http://127.0.0.1/
+
+ ![App Screenshot](images/task4-2.png)
+
+
+
+
+
+## 5-task
+
+php-fpm orqali ishlayotgan web ilova, MySQL bazasiga ulanmoqchi, lekin .
+Sizga quyidagilarni qilish topshiriladi:
+Avval audit.log orqali blok sababini toping.
+So‘ngra,  orqali muammoni hal qiling.
+ getsebool -a | grep httpd bilan boshlang.
+
+
