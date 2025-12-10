@@ -96,7 +96,10 @@ DNAT was configured to redirect incoming HTTP traffic on port 80 to the internal
 
 ## 4-task
 
-Serverga kelayotgan 80-portdagi trafikni  10.10.10.10:8080 ga DNAT qiling.Shuningdek, chiqayotgan trafik uchun MASQUERADE yoqing (NAT qilish). Tashqi brauzerdan http://server_ip orqali kirilganda, aslida 10.10.10.10:8080 dan xizmat ko‘rsatilishi kerak.
+ /opt/public_html katalogidagi fayllar nginx tomonidan xizmat ko‘rsatilmoqda.
+Siz bu katalogni SELinux orqali  kerak — lekin fayl ruxsatlari (chmod) va NGINX sozlamalari to‘g‘ri qolishi kerak.
+Foydalanuvchi 403 Forbidden xatolik olishi kerak.
+  Keyin bu katalogni to‘g‘ri kontekstga o‘tkazib, xizmatni .
 
 Preparing web directory
     sudo mkdir -p /opt/public_html
