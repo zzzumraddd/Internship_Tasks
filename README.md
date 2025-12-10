@@ -149,6 +149,8 @@ Avval audit.log orqali blok sababini toping.
 So‘ngra,  orqali muammoni hal qiling.
  getsebool -a | grep httpd bilan boshlang.
 
+ ![App Screenshot](images/task5-1.png)
 
+  ![App Screenshot](images/task5-2.png)
 
-
+  
