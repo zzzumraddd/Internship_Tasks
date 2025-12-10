@@ -49,7 +49,7 @@ changed the zone to public because the trusted zone allows all traffic by defaul
 
     3)Restricting submission of DNS Queries to a sinlge ip address
     sudo firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address="192.168.100.100" service name="dns" accept'
- 
+
 ![App Screenshot](images/task2-2.png)
 
 Firewalld rich rules provide an advanced, expressive language for defining granular firewall policies that go beyond basic port and service management. They offer precise control over network traffic, allowing rules based on source and destination addresses, logging, rate limiting, port forwarding, and masquerading (NAT). 
@@ -66,6 +66,31 @@ interfaces or addresses configured.
 Clarity: It makes your rules self-documenting and less prone to errors when you reload or manage the firewall.
 
 ![App Screenshot](images/task2-3.png)
+
+
+
+## 3-task
+
+Serverga kelayotgan 80-portdagi trafikni  10.10.10.10:8080 ga DNAT qiling.Shuningdek, chiqayotgan trafik uchun MASQUERADE yoqing (NAT qilish). Tashqi brauzerdan http://server_ip orqali kirilganda, aslida 10.10.10.10:8080 dan xizmat ko‘rsatilishi kerak.
+
+Network Address Translation (NAT) is a handy technique in Linux that allows multiple devices to share a single public IP address for internet connectivity.
+
+![App Screenshot](images/task3-1.png)
+
+![App Screenshot](images/task3-2.png)
+
+To complete this task, IP forwarding was enabled so the server could act as a router and forward packets between interfaces.
+
+![App Screenshot](images/task3-3.png)
+
+MASQUERADE was enabled in the POSTROUTING chain to correctly rewrite source addresses for outgoing traffic, ensuring proper return routing.
+
+![App Screenshot](images/task3-4.png)
+
+DNAT was configured to redirect incoming HTTP traffic on port 80 to the internal server at 10.10.10.10:8080.
+
+![App Screenshot](images/task3-5.png)
+
 
 
 
