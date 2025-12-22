@@ -63,7 +63,6 @@ Partition table: DOS (MBR)
 
     sudo fdisk -l /dev/sdc
 
-![App Screenshot](images/task1-9.png)
 
 sdc4 — extended partition, u faqat logical partitionlar uchun konteyner.
 
@@ -82,8 +81,6 @@ Example
     Last sector: +1.1G
 
 In fdisk, a partition is defined as a continuous block of disk space measured in sectors (small numbered chunks, usually 512 bytes each). The first sector is the sector number where the partition starts, and the last sector is where it ends; everything between them belongs to that partition. The partition size is simply how many sectors are included: (last − first + 1), and then that number is multiplied by the sector size to get bytes. When you type +1G for the last sector, fdisk automatically calculates the correct ending sector so the partition becomes about 1 GB.
-
-![App Screenshot](images/task1-11.png)
 
 Create/enable         swap partition of 1 GB and make it permanent (survives reboot) 
 
@@ -104,6 +101,8 @@ Write changes with w
     free -h
 Shows /dev/sdc7 with size 1G
 
+![App Screenshot](images/task1-10.png)
+
 5. Make swap permanent (survive reboot)
 Get UUID:
     sudo blkid /dev/sdc7
@@ -122,7 +121,6 @@ Add this line:
 
 ![App Screenshot](images/task1-11.png)
 
-![App Screenshot](images/task1-12.png)
 
 Swap is needed because it acts like backup memory: when RAM is not enough, Linux can move some inactive data from RAM to swap, so the system doesn’t crash and programs don’t suddenly stop.
 
@@ -170,7 +168,7 @@ Get UUID:
     df -h
     free -h
 
-![App Screenshot](images/task1-13.png)
+![App Screenshot](images/task1-12.png)
 
 
 
