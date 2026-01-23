@@ -14,15 +14,6 @@ Set up SSH from your control node to both target VMs.
 
 
 
-## 1-task
-
-1. 🔐 Set up SSH Access
-Set up SSH from your control node to both target VMs.
-
-![App Screenshot](images/image1.png)
-
-![App Screenshot](images/image2.png)
-
 
 
 ## 2-task
