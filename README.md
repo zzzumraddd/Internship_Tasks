@@ -218,4 +218,4 @@ Nginx exec = ping k8s-bootcamp service or telnet to its service port
 
         curl -v http://k8sbc-service
 
-![App Screenshot](curl.png)
+![App Screenshot](images/curl.png)
