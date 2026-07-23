@@ -1,486 +1,221 @@
-# 🧩 Process Monitoring Mini-Tasks
 
-All commands below were executed on a Linux VM as user `akbaralievich` (RHEL/CentOS-like system).  
-This README documents how each task was performed so it can be reproduced later.
+# K8S 1st Assingment(kubectl, deployments, namespaces, pods, services)
 
----
+## What is k8s cluster?
 
-## ✅ Task 1 – Find Zombie Processes
+A Kubernetes (K8s) cluster is a set of machines—called nodes—grouped together to run and manage containerized applications. It automates how software scales, updates, and stays online across multiple servers.
 
-**Goal:** Detect zombie processes (state `Z`) in the system.
+* Control Plane (The Brain)
 
-### Command
+        1. API Server: Acts as the front door that accepts user commands and queries.
 
-```bash
-# Show all processes whose STAT column starts with "Z" (zombie)
-ps aux | awk '$8 ~ /^Z/ { print }'
-```
+        2. etcd: Saves all cluster data and system state in a safe place.
 
-### Explanation
+        3. Scheduler: Chooses which machine will run new application tasks.
 
-- `ps aux` – list all processes with detailed info.  
-- `$8` – the `STAT` column in `ps aux` output.  
-- `/^Z/` – status starting with `Z` → zombie process.  
-- `{ print }` – print the full line for every match.
+        4. Controller Manager: Fixes problems and keeps the system in the requested state. 
 
-### Result (current run)
 
-The command produced **no output**, which means there were **no zombie processes** on the system at that moment.
+* Worker Nodes (The Muscle)
 
----
+        1. Pods: The smallest groups that hold one or more running application containers.
+        2. Kubelet: A local agent that makes sure containers inside pods stay healthy.
+        3. Container Runtime: The base software (like containerd) that runs the actual containers.
+        4. Kube-proxy: Manages network traffic between different parts of the system.
 
-## ✅ Task 2 – List Top CPU-Consuming Processes
+    
 
-**Goal:** See which processes are using the most CPU right now.
 
-### Command (Top 10 by CPU)
 
-```bash
-ps aux | sort -k3 -rn | head -10
-```
 
-### Explanation
+## Bootstrap a kubernetes cluster using "kubeadm" in virtual machine
 
-- `%CPU` is the **3rd column** in `ps aux` output.  
-- `sort -k3 -rn` – sort by the 3rd column, numeric, reverse (highest first).  
-- `head -10` – show only the first 10 lines (top 10 processes).
+Bootstrapping a Kubernetes cluster using kubeadm in a virtual machine means setting up a working multi-node or single-node container system on a simulated computer using the official Kubernetes tool. 
 
-> To view the top 10 processes by **memory usage**, sort by column 4:
->
-> ```bash
-> ps aux | sort -k4 -rn | head -10
-> ```
->
-> Here `%MEM` is the 4th column.
+    The main steps are:
 
----
+    Virtual Machine (VM): Creating a private, simulated computer (using tools like VirtualBox or KVM) to act as your host server.
+   
+    Kubeadm: Running the official tool that installs and configures the control plane components to start the cluster.
+   
+    Cluster: Joining worker nodes to form a system that runs and manages containerized apps together.
 
-## ✅ Task 3 – Identify & Kill All Browser Processes (Chrome/Firefox)
 
-**Goal:** Find and terminate any running browser processes (`chrome` / `firefox`).
+Step 1: 
 
-### Step 1 – Check if browsers are running
+Installing k8s packages
 
-```bash
-# Look for Chrome processes
-pgrep -l chrome
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
 
-# Look for Firefox processes
-pgrep -l firefox
-```
+Add k8s GPG key
 
-- `pgrep -l` prints matching PIDs and process names.  
-- If nothing is printed → no such processes are running.
+What is GPG key? A GPG (GNU Privacy Guard) key is a pair of cryptographic codes—a public key and a private key—used to securely encrypt data, decrypt messages, and sign digital files. It proves your identity and keeps your communications safe
 
-In my run, both commands returned **no output**, so no Chrome/Firefox processes were active.
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key \
+        | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
-### Step 2 – Kill all browser processes (if any)
+Install tools
 
-```bash
-# Kill all Firefox processes
-pkill firefox
+        sudo apt-get update
+        sudo apt-get install -y kubelet kubeadm kubectl
+        sudo apt-mark hold kubelet kubeadm kubectl
 
-# Kill all Chrome processes
-pkill chrome
-```
+Step 2: Install Container Runtime(containerd)
 
-- `pkill <name>` sends `SIGTERM` to all processes whose name matches `<name>`.  
-- If there are no such processes, `pkill` simply does nothing visible.
+        sudo apt install -y containerd
+        sudo systemctl enable containerd --now
 
-### Step 3 – Verify that browsers are gone
+Step 3: Prepare the System
 
-```bash
-pgrep -l chrome
-pgrep -l firefox
-```
+Disable Swap (Required by Kubernetes)
 
-If both commands return **no output**, there are no remaining browser processes.
+        sudo swapoff -a
+        sudo sed -i.bak '/ swap / s/^/#/' /etc/fstab
 
----
+Enable IP Forwarding
 
-## ✅ Task 4 – Play with `nice` and `renice` (CPU Throttling)
+        echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+        sudo sysctl -p
 
-**Goal:** Observe how changing the *nice* value affects process scheduling and CPU usage.
+Step 4: Initialize the Control Plane Node
 
-### Steps
+Example (Customize your cluster-endpoint and CIDR)
 
-```bash
-# 1) Start a CPU-bound process with default nice (0)
-yes > /dev/null &
+        sudo kubeadm init \
+        --control-plane-endpoint "cluster-endpoint:6443" \
+        --pod-network-cidr <IP address>"
 
-# 2) Start a second CPU-bound process
-yes > /dev/null &
+Step 5: Configure kubectl access
 
-# 3) Check their PIDs and current nice values
-ps -C yes -o pid,ni,cmd
+        mkdir -p $HOME/.kube
+        sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+        sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-# 4) Lower the priority of one of them (example PID 30412)
-renice -n 5 -p 30412
+Then we need to insteall CNI plugin(Calico or Flannel), which is the next task
 
-# 5) Observe both processes in top
-top
-```
 
-### Observations
+## Install a pod network add-on(calico or flannel)
 
-Example `top` snippet:
+A pod network add-on is a software plugin in Kubernetes that assigns unique IP addresses to pods and enables them to talk to each other across different physical or virtual servers. Popular examples include Calico, Flannel, and Cilium. 
 
-```text
-PID    USER      PR  NI  %CPU  COMMAND
-30410  akbaral+  20   0  99.0  yes
-30412  akbaral+  25   5  97.7  yes
-```
+I did both just to test both ways
 
-- The first `yes` process is running with **NI = 0** (default).  
-- The second `yes` process was changed with `renice` to **NI = 5**, so its **PR** (scheduler priority) increased from 20 to 25 (higher PR = lower priority).  
-- Linux uses nice values in the range **-20..19**:  
-  - Lower NI (e.g. 0, -5) → higher priority, more CPU time on contention.  
-  - Higher NI (e.g. 5, 19) → “polite” process, gets CPU time after higher‑priority tasks.
+    Option 1: Install Calico
 
-On this VM there are multiple CPU cores, so both `yes` processes can still reach ~100% CPU when the system is otherwise idle.  
-When the CPU is busy, the kernel prefers the process with **NI = 0 (PR 20)** over the one with **NI = 5 (PR 25)**, demonstrating how `nice`/`renice` influence scheduling.
+    curl -O https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml
+    kubectl apply -f calico.yaml
 
----
+![App Screenshot](images/calico.png)
 
-## ✅ Task 5 – `/proc` Investigation
+    Option 2: Install Flannel
 
-For this task I started a `sleep 1000` process and explored its entry under `/proc`.
+    kubectl apply -f https://github.com/coreos/flannel/raw/master/Documentation/kube-flannel.yml
 
-### `/proc/<pid>/cmdline`
+![App Screenshot](images/flannel.png)
 
-```bash
-# Find the PID of sleep
-ps aux | grep "sleep 1000"
 
-# Example PID: 30747
-cd /proc/30747
-cat cmdline
-```
+## Provide outputs of commands
 
-Example output:
+        kubectl get nodes -o yaml
 
-```text
-sleep1000
-```
+kubectl get nodes — normally shows a short table: node name, status (Ready/NotReady), roles, age, and Kubernetes version.
 
-`cmdline` contains the **exact command line** used to start the process, including its arguments.  
-For `sleep 1000` it shows `sleep1000` (arguments are stored without spaces, separated by NUL characters internally).
+-o yaml — instead of the short table, dumps the entire underlying object definition for every node, in YAML.
 
----
+        Output:
 
-### `/proc/<pid>/status`
+![App Screenshot](images/output1.png)
 
-```bash
-cat status
-```
+![App Screenshot](images/output2.png)
 
-Snippet of the output:
+        kubectl get pods -o wide --all-namespaces 
 
-```text
-Name:   sleep
-State:  S (sleeping)
-Pid:    30747
-PPid:   28945
-Uid:    1000   1000   1000   1000
-Gid:    1005   1005   1005   1005
-VmSize: 5400 kB
-VmRSS:  1992 kB
-Threads: 1
-voluntary_ctxt_switches: 2
-nonvoluntary_ctxt_switches: 1
-...
-```
+kubectl get pods -o wide --all-namespaces lists every pod running in the cluster, across all namespaces, with extra detail columns. 
 
-`status` is a human‑readable summary of the process. It shows:
+Breaking it down:
+kubectl get pods — normally lists pods only in your current namespace (usually default unless you've changed context), showing name, ready count, status, restarts, and age.
 
-- Identity (`Name`, `Pid`, `PPid`)  
-- Current state (`S` = sleeping)  
-- User/group IDs  
-- Memory usage (`VmSize`, `VmRSS`, etc.)  
-- Number of threads and context‑switch statistics
+-o wide — adds extra columns to that same table: pod IP, the node the pod is running on, nominated node (for scheduling), and readiness gates.
 
----
+--all-namespaces (or the shorthand -A) — instead of just your current namespace, shows pods from every namespace, adding a NAMESPACE column at the front so you can tell them apart.
 
-### `/proc/<pid>/fd/`
+        Output: 
 
-```bash
-cd fd
-ls
-ls -l
-```
+![App Screenshot](images/output3.png)
+## Working with deployments, services, yaml files...
 
-Example output:
+kubectl create deployment 
+       
+        k8s-bootcamp-new
+        --image=gcrio/google-samples/kubernetes-bootcamp:v1-port=1111
 
-```text
-0  1  2
+Nginx deployment + service clusterIP
 
-0 -> /dev/pts/0
-1 -> /dev/pts/0
-2 -> /dev/pts/0
-```
+        deployment-nginx.yaml
 
-`fd/` is a directory of **open file descriptors**:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+        name: nginx
+        labels:
+            type: nginx
+            app: nginx
+        spec:
+        replicas: 2
+        selector:
+            matchLabels:
+             type: nginx
+             app: nginx
+        template:
+            metadata:
+            name: nginx
+            labels:
+                type: nginx
+                app: nginx
+            spec:
+            containers:
+                - name: nginx
+                  image: nginx
 
-- `0` = stdin  
-- `1` = stdout  
-- `2` = stderr  
+        service-nginx.yaml
 
-All three pointed to my terminal (`/dev/pts/0`), which shows that the terminal is just another file device that processes read from and write to.
+        apiVersion: v1
+        kind: Service
+        metadata: 
+         name: nginx-service
+        spec:
+        selector:
+            app: nginx
+        ports:
+            - protocol: TCP
+              port: 80
+              targetPort: 80
+        type: ClusterIP  
 
----
+K8s-bootcamp + service ClusterIP
 
-### Extra observation: exploring `/proc` and PID 1
+        service-k8sbootcamp.yaml
+        
+        apiVersion: v1
+        kind: Service
+        metadata: 
+          name: k8sbc-service
+        spec:
+        selector:
+            app: k8s-bootcamp-new
+        ports:
+            - protocol: TCP
+              port: 80
+              targetPort: 8080
+        type: ClusterIP 
 
-```bash
-cd /proc
-ls          # shows many PIDs plus files like cpuinfo, meminfo, uptime
 
-cd /proc/1
-ls
-```
+Nginx exec = ping k8s-bootcamp service or telnet to its service port
 
-For PID 1 (systemd) I saw messages like:
+        kubectl exec -it k8s-bootcamp-new-5887696cf-8vl9g -- bash
 
-```text
-ls: cannot read symbolic link 'cwd': Permission denied
-ls: cannot read symbolic link 'root': Permission denied
-ls: cannot read symbolic link 'exe': Permission denied
-```
+        curl -v http://k8sbc-service
 
-This shows that `/proc` exposes detailed information about processes, but **access to some data for system processes is restricted** unless you are root.
-
----
-
-### Summary for Task 5
-
-- `cmdline` → launch command and arguments.  
-- `status` → detailed process state (IDs, memory, threads, context switches).  
-- `fd/` → all open file descriptors (stdin/stdout/stderr, etc.).  
-- `/proc` is a virtual filesystem representing live process and kernel state, with permissions enforced for sensitive entries.
-
----
-
-## ✅ Task 6 – Job Control: Foreground, Background and Stopped Jobs
-
-### 🎯 Task Description
-
-In this task I practiced:
-
-- Starting a long‑running command in the **foreground**  
-- Suspending it with `Ctrl+Z` so it becomes a **stopped job**  
-- Listing background jobs with `jobs`  
-- Resuming a stopped job in the **background** with `bg`  
-- Bringing a job back to the **foreground** with `fg`  
-
-All commands were run in a Bash shell on Linux.
-
----
-
-### 1. Start a foreground command
-
-I started a command that runs for a while, for example:
-
-```bash
-sleep 100
-```
-
-or
-
-```bash
-yes > /dev/null
-```
-
-This command initially runs in the **foreground**, blocking the terminal prompt.
-
----
-
-### 2. Suspend the command (send it to the background as stopped)
-
-While the command was running in the foreground, I pressed:
-
-```text
-Ctrl+Z
-```
-
-The shell showed something like:
-
-```text
-^Z
-[1]+  Stopped                 sleep 100
-```
-
-Now this command is registered as **job 1** in a *stopped* state.
-
----
-
-### 3. List current jobs
-
-I checked the list of jobs with:
-
-```bash
-jobs -l
-```
-
-Example output:
-
-```text
-[1]+  31695 Stopped            sleep 100
-```
-
-- `[1]` – job number.  
-- `31695` – process ID (PID).  
-- `Stopped` – current state.  
-- `sleep 100` – original command.
-
----
-
-### 4. Resume the job in the background
-
-To continue the stopped job **in the background**, I ran:
-
-```bash
-bg %1
-```
-
-Here:
-
-- `bg` means **background**.  
-- `%1` refers to job number 1.
-
-After that, `jobs -l` showed the job as running:
-
-```text
-[1]+  31695 Running            sleep 100 &
-```
-
-The `&` at the end indicates that it is now running in the background, and my shell prompt is free again.
-
----
-
-### 5. Bring the job back to the foreground
-
-To bring the same job from the background back to the **foreground**, I used:
-
-```bash
-fg %1
-```
-
-- `fg` means **foreground**.  
-- `%1` again refers to job number 1.
-
-After this command, the terminal attached to that job, and I no longer saw the shell prompt until the job finished (or I interrupted it).
-
----
-
-### 6. Stop the job completely (optional)
-
-For commands that do not end quickly (like `yes > /dev/null`), I did the following to terminate them:
-
-1. Bring the job to the foreground (if it was in the background):
-
-   ```bash
-   fg %1
-   ```
-
-2. Then stop it with:
-
-   ```text
-   Ctrl+C
-   ```
-
-This sends `SIGINT` and terminates the process.
-
----
-
-### 🔍 What I Demonstrated in Task 6
-
-I showed that I can:
-
-- Use `Ctrl+Z` to suspend a foreground process.  
-- Use `jobs` / `jobs -l` to inspect current jobs.  
-- Use `bg %n` to resume a job in the background.  
-- Use `fg %n` to bring a job back to the foreground.  
-- Understand the difference between **foreground**, **background**, and **stopped** jobs.
-
----
-
-## ✅ Task 7 – Graceful Ctrl+C (SIGINT) Handling
-
-### Goal
-
-Create a Bash script that simulates a long‑running process and **cleans up gracefully** when the user presses `Ctrl+C` (SIGINT).  
-When SIGINT is received, the script must print:
-
-> `Caught SIGINT, cleaning up…`
-
-and then exit cleanly.
-
----
-
-### Script: `long_process.sh`
-
-```bash
-#!/bin/bash
-
-cleanup() {
-    echo "Caught Ctrl+C (SIGINT), performing cleanup..."
-    # Add your cleanup commands here
-    echo "Cleanup finished."
-    exit 0
-}
-
-# Trap the SIGINT signal (Ctrl+C)
-trap 'cleanup' SIGINT
-
-echo "Process running. Press Ctrl+C to stop gracefully."
-
-# Example long‑running task
-while true; do
-    sleep 1
-done
-```
-
----
-
-### How I ran and tested it
-
-1. Created/edited the file in `vim` and pasted the script:
-
-   ```bash
-   vim long_process.sh
-   ```
-
-2. Made the script executable:
-
-   ```bash
-   chmod +x long_process.sh
-   ```
-
-3. Started the script in the foreground:
-
-   ```bash
-   ./long_process.sh
-   ```
-
-4. While it was running, pressed `Ctrl+C`.
-
-   Example output:
-
-   ```text
-   Process running. Press Ctrl+C to stop gracefully.
-   ^CCaught Ctrl+C (SIGINT), performing cleanup...
-   Cleanup finished.
-   ```
-
-The script exits **only after** the `cleanup` function finishes, so any temporary files or background work can be safely handled in that function.
-
----
-
-### What this demonstrates
-
-- Using a **signal handler** in Bash with `trap`.  
-- Handling `SIGINT` (`Ctrl+C`) so the script can:  
-  - Show a clear message to the user.  
-  - Run custom cleanup logic.  
-  - Exit with status `0` after finishing cleanup.
-
+![App Screenshot](curl.png)
