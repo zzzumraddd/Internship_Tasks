@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-server-config
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+    events {
+      worker_connections 1024;
+    }
+    http {
+      server {
+        listen 80;
+        server_name localhost;
+        location / {
+          root /usr/share/nginx/html;
+          index index.html;
+        }
+      }
+    }
+  index.html: |
+    <h1>Anyops Sila!</h1>

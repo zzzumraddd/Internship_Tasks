@@ -1,221 +1,311 @@
 
-# K8S 1st Assingment(kubectl, deployments, namespaces, pods, services)
+# Kubernetes Homework Assignment – Nginx App Deployment
 
-## What is k8s cluster?
 
-A Kubernetes (K8s) cluster is a set of machines—called nodes—grouped together to run and manage containerized applications. It automates how software scales, updates, and stays online across multiple servers.
 
-* Control Plane (The Brain)
 
-        1. API Server: Acts as the front door that accepts user commands and queries.
+## 1-task
 
-        2. etcd: Saves all cluster data and system state in a safe place.
+Deployment & Service
 
-        3. Scheduler: Chooses which machine will run new application tasks.
+* Create a Deployment called custom-nginx with the image nginx:latest.
 
-        4. Controller Manager: Fixes problems and keeps the system in the requested state. 
+* Run 2 replicas.
 
-
-* Worker Nodes (The Muscle)
-
-        1. Pods: The smallest groups that hold one or more running application containers.
-        2. Kubelet: A local agent that makes sure containers inside pods stay healthy.
-        3. Container Runtime: The base software (like containerd) that runs the actual containers.
-        4. Kube-proxy: Manages network traffic between different parts of the system.
-
-    
-
-
-
-
-## Bootstrap a kubernetes cluster using "kubeadm" in virtual machine
-
-Bootstrapping a Kubernetes cluster using kubeadm in a virtual machine means setting up a working multi-node or single-node container system on a simulated computer using the official Kubernetes tool. 
-
-    The main steps are:
-
-    Virtual Machine (VM): Creating a private, simulated computer (using tools like VirtualBox or KVM) to act as your host server.
-   
-    Kubeadm: Running the official tool that installs and configures the control plane components to start the cluster.
-   
-    Cluster: Joining worker nodes to form a system that runs and manages containerized apps together.
-
-
-Step 1: 
-
-Installing k8s packages
-
-        sudo apt-get update
-        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
-
-Add k8s GPG key
-
-What is GPG key? A GPG (GNU Privacy Guard) key is a pair of cryptographic codes—a public key and a private key—used to securely encrypt data, decrypt messages, and sign digital files. It proves your identity and keeps your communications safe
-
-        sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key \
-        | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-
-Install tools
-
-        sudo apt-get update
-        sudo apt-get install -y kubelet kubeadm kubectl
-        sudo apt-mark hold kubelet kubeadm kubectl
-
-Step 2: Install Container Runtime(containerd)
-
-        sudo apt install -y containerd
-        sudo systemctl enable containerd --now
-
-Step 3: Prepare the System
-
-Disable Swap (Required by Kubernetes)
-
-        sudo swapoff -a
-        sudo sed -i.bak '/ swap / s/^/#/' /etc/fstab
-
-Enable IP Forwarding
-
-        echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
-        sudo sysctl -p
-
-Step 4: Initialize the Control Plane Node
-
-Example (Customize your cluster-endpoint and CIDR)
-
-        sudo kubeadm init \
-        --control-plane-endpoint "cluster-endpoint:6443" \
-        --pod-network-cidr <IP address>"
-
-Step 5: Configure kubectl access
-
-        mkdir -p $HOME/.kube
-        sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-        sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
-Then we need to insteall CNI plugin(Calico or Flannel), which is the next task
-
-
-## Install a pod network add-on(calico or flannel)
-
-A pod network add-on is a software plugin in Kubernetes that assigns unique IP addresses to pods and enables them to talk to each other across different physical or virtual servers. Popular examples include Calico, Flannel, and Cilium. 
-
-I did both just to test both ways
-
-    Option 1: Install Calico
-
-    curl -O https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml
-    kubectl apply -f calico.yaml
-
-![App Screenshot](images/calico.png)
-
-    Option 2: Install Flannel
-
-    kubectl apply -f https://github.com/coreos/flannel/raw/master/Documentation/kube-flannel.yml
-
-![App Screenshot](images/flannel.png)
-
-
-## Provide outputs of commands
-
-        kubectl get nodes -o yaml
-
-kubectl get nodes — normally shows a short table: node name, status (Ready/NotReady), roles, age, and Kubernetes version.
-
--o yaml — instead of the short table, dumps the entire underlying object definition for every node, in YAML.
-
-        Output:
-
-![App Screenshot](images/output1.png)
-
-![App Screenshot](images/output2.png)
-
-        kubectl get pods -o wide --all-namespaces 
-
-kubectl get pods -o wide --all-namespaces lists every pod running in the cluster, across all namespaces, with extra detail columns. 
-
-Breaking it down:
-kubectl get pods — normally lists pods only in your current namespace (usually default unless you've changed context), showing name, ready count, status, restarts, and age.
-
--o wide — adds extra columns to that same table: pod IP, the node the pod is running on, nominated node (for scheduling), and readiness gates.
-
---all-namespaces (or the shorthand -A) — instead of just your current namespace, shows pods from every namespace, adding a NAMESPACE column at the front so you can tell them apart.
-
-        Output: 
-
-![App Screenshot](images/output3.png)
-## Working with deployments, services, yaml files...
-
-kubectl create deployment 
-       
-        k8s-bootcamp-new
-        --image=gcrio/google-samples/kubernetes-bootcamp:v1-port=1111
-
-Nginx deployment + service clusterIP
-
-        deployment-nginx.yaml
+custom-nginx.yaml
 
         apiVersion: apps/v1
         kind: Deployment
         metadata:
-        name: nginx
+        name: custom-nginx
         labels:
-            type: nginx
-            app: nginx
+            app: custom-nginx
         spec:
         replicas: 2
         selector:
             matchLabels:
-             type: nginx
-             app: nginx
+            app: custom-nginx
         template:
             metadata:
-            name: nginx
             labels:
-                type: nginx
+                app: custom-nginx
+            spec:
+            containers:
+                - name: nginx-container
+                image: nginx:latest
+                ports:
+                - containerPort: 80
+
+
+* Expose it with a ClusterIP and a NodePort Service.
+
+customNginx-clusterIP.yaml
+
+        apiVersion: v1
+        kind: Service
+        metadata:
+        name: custom-nginx-clusterip
+        spec:
+        type: ClusterIP
+        selector:
+            app: custom-nginx
+        ports:
+            - port: 80
+            targetPort: 80
+            protocol: TCP
+
+customNginx-nodePort.yaml
+
+        apiVersion: v1
+        kind: Service
+        metadata: 
+        name: custom-nginx-nodeport
+        spec:
+        type: NodePort
+        selector:
+            app: custom-nginx
+        ports:
+            - port: 80
+            targetPort: 80
+
+## 2-task
+
+Ingress
+Install and configure Ingress Controller (like NGINX Ingress).
+
+        # Untaint master node
+        kubectl taint nodes --all node-role.kubernetes.io/control-plane:NoSchedule-
+
+        # Install ingress-controller
+        curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml | kubectl apply -f -  
+
+        # Patch hostnetwork  
+        $ cat <<EOF > patch.yml
+        spec:
+        template:
+            spec:
+            hostNetwork: true
+        EOF  
+
+        kubectl patch deployment ingress-nginx-controller --patch-file patch.yml -n ingress-nginx
+
+
+Create an Ingress resource to expose the NGINX deployment via domain nginx.local.
+
+customNginx-ingress.yaml
+
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+        name: nginx-ingress-resource
+        annotations:
+            nginx.ingress.kubernetes.io/rewrite-target: /
+        spec:
+        ingressClassName: nginx
+        rules:
+            - host: nginx.local
+            http:
+            paths: 
+                - path: /
+                pathType: Prefix
+                backend:
+                service:
+                    name: custom-nginx
+                    port: 
+                    number: 80
+
+
+
+Use curl or /etc/hosts to test.
+
+        kubectl get svc -n ingress-nginx ingress-nginx-controller
+    
+        change /etc/hosts
+
+        <IP ADRESS> nginx.local
+
+        curl http://nginx.local
+
+![App Screenshot](images/output1.png)
+
+## 3-task
+
+ConfigMap
+
+* Create a ConfigMap named nginx-config with a custom NGINX config (e.g. it should say AnyOps Sila).
+
+* Mount this ConfigMap into the container at path: /etc/nginx/conf.d/default.conf.
+
+A Kubernetes ConfigMap is an API object used to store non-confidential configuration data in key-value pairs. It allows you to decouple environment-specific configurations from your application container images, keeping your workloads portable across development, staging, and production environments without needing image rebuilds. 
+
+To mount a ConfigMap as a volume in Kubernetes, you must define it in the spec.volumes section of your Pod or Deployment manifest, and then reference it within your container using spec.containers.volumeMounts. Each key in the ConfigMap automatically becomes a file inside the mounted directory.
+
+nginx-config.yaml 
+
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+        name: nginx-server-config
+        data:
+        nginx.conf: |
+            user nginx;
+            worker_processes auto;
+            events {
+            worker_connections 1024;
+            }
+            http {
+            server {
+                listen 80;
+                server_name localhost;
+                location / {
+                root /usr/share/nginx/html;
+                index index.html;
+                }
+            }
+            }
+        index.html: |
+            <h1>Anyops Sila!</h1>
+
+
+nginx-deployment.yaml 
+
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+        name: nginx-deployment
+        spec:
+        replicas: 1
+        selector:
+            matchLabels:
+            app: nginx
+        template:
+            metadata:
+            labels:
                 app: nginx
             spec:
             containers:
-                - name: nginx
-                  image: nginx
+            - name: nginx
+                image: nginx:alpine
+                ports:
+                - containerPort: 80
+                volumeMounts:
+                - name: config-volume
+                mountPath: /etc/nginx/nginx.conf
+                subPath: nginx.conf
+                - name: html-volume
+                mountPath: /usr/share/nginx/html/index.html
+                subPath: index.html
+            volumes:
+            - name: config-volume
+                configMap:
+                name: nginx-server-config
+            - name: html-volume
+                configMap:
+                name: nginx-server-config
 
-        service-nginx.yaml
 
-        apiVersion: v1
-        kind: Service
-        metadata: 
-         name: nginx-service
-        spec:
-        selector:
-            app: nginx
-        ports:
-            - protocol: TCP
-              port: 80
-              targetPort: 80
-        type: ClusterIP  
-
-K8s-bootcamp + service ClusterIP
-
-        service-k8sbootcamp.yaml
+        kubectl exec -it $(kubectl get pod -l app=nginx -o jsonpath='{.items[0].metadata.name}') -- curl localhost
         
+        Output: <h1>Anyops Sila!</h1>
+
+![App Screenshot](images/output2.png)
+
+
+
+
+## 4-task
+
+Secret
+* Create a Secret named nginx-secrets with:
+
+username: admin
+
+password: anyops123
+
         apiVersion: v1
-        kind: Service
-        metadata: 
-          name: k8sbc-service
+        kind: Secret
+        metadata:
+        name: secret-basic-auth 
+        type: Opaque
+        stringData:
+        username: admin 
+        password: anyops123
+
+* Use envFrom in the Deployment to load the secret as environment variables.
+
+nginx-deployment.yaml 
+
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+        name: nginx-deployment
         spec:
+        replicas: 1
         selector:
-            app: k8s-bootcamp-new
-        ports:
-            - protocol: TCP
-              port: 80
-              targetPort: 8080
-        type: ClusterIP 
+            matchLabels:
+            app: nginx
+        template:
+            metadata:
+            labels:
+                app: nginx
+            spec:
+            containers:
+            - name: nginx
+                image: nginx:alpine
+                ports:
+                - containerPort: 80
+                envFrom:
+                - secretRef:
+                    name: secret-basic-auth  
+                volumeMounts:
+                - name: config-volume
+                mountPath: /etc/nginx/nginx.conf
+                subPath: nginx.conf
+                - name: html-volume
+                mountPath: /usr/share/nginx/html/index.html
+                subPath: index.html
+            volumes:
+            - name: config-volume
+                configMap:
+                name: nginx-server-config
+            - name: html-volume
+                configMap:
+                name: nginx-server-config
+
+        kubectl get pods
+        
+        kubectl exec -it nginx-deployment-79c5dfd58d-zwstp -- sh
+
+![App Screenshot](images/output3.png)
+
+![App Screenshot](images/output4.png)
+## 5-task
+
+Environment Variable
+
+Add a static environment variable in Deployment:
+
+* TZ: Asia/Tashkent to configure timezone.
+
+        env:
+                - name: TZ
+                    value: "Asia/Tashkent"
 
 
-Nginx exec = ping k8s-bootcamp service or telnet to its service port
+![App Screenshot](images/output5.png)
+## 6-task
 
-        kubectl exec -it k8s-bootcamp-new-5887696cf-8vl9g -- bash
+ Resource Requests & Limits
+Define resource requests and limits in the Deployment:
+64 megabayt ram and 100 millicore cpu req
+128 megabayt ram and 128 millicore cpu limit
 
-        curl -v http://k8sbc-service
+        resources:
+                requests:
+                    memory: "64Mi"
+                    cpu: "100m"
+                limits:
+                    memory: "128Mi"
+                    cpu: "128m"
 
-![App Screenshot](images/curl.png)
+![App Screenshot](images/output6.png)
