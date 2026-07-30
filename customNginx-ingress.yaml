@@ -9,12 +9,11 @@ spec:
   rules:
     - host: nginx.local
       http:
-       paths: 
-        - path: /
-          pathType: Prefix
-          backend:
-           service:
-             name: custom-nginx
-             port: 
-              number: 80
-
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: custom-nginx-clusterip
+                port:
+                  number: 80
