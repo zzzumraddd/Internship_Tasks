@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: date
+  namespace: anyops-cron
+spec:
+  schedule: "*/2 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: date
+              image: busybox:latest
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -c
+                - 'echo "Script executed at: $(date "+%Y-%m-%d %H:%M:%S")" >> /data/date_logs.txt'
+              volumeMounts:
+                - name: log-volume
+                  mountPath: /data
+          restartPolicy: OnFailure
+          volumes:
+            - name: log-volume
+              hostPath:
+                path: /home/vm1_user
+                type: DirectoryOrCreate
