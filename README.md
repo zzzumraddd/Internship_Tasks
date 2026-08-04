@@ -1,111 +1,155 @@
 
-# # Homework — Jobs and CronJobs (beginner level)
+# Homework — RBAC (beginner level)
 
-## A little theory
+## Tasks
 
-Pods in a Deployment are supposed to keep running forever. But some work isn't like that — taking a backup, sending a report, cleaning up old files — that work should run once and finish. That's exactly what **Jobs** and **CronJobs** are for.
+### 1. Create a namespace
+Create a namespace called `anyops-rbac`. Every resource below must live inside it.
 
-| Thing | What it does |
-|-------|--------------|
-| **Job** | Runs once, does its work, finishes. The pod ends up `Completed` and is not restarted. |
-| **CronJob** | Creates Jobs for you on a schedule. Same syntax as Linux `crontab`. |
+### 2. Create a ServiceAccount
+Create a ServiceAccount called `student`.
+
+### 3. Create a Role
+Create a Role called `pod-reader`. It may **only** `get`, `list` and `watch` pods.
+Nothing else: no `create`, no `delete`, no secrets.
 
 
-### 1. A Job that runs once and stops
-Create a Job named `print-date` that:
-- uses the `busybox` image
-- prints the current date
-- finishes and does not restart
-
-Once it's created, check:
-- What's the Job's status? (`kubectl get jobs -n anyops-cron`)
+### 4. Create a RoleBinding
+Create a RoleBinding called `app-reader` that binds the `student` ServiceAccount to the `pod-reader` Role.
 
 ![App Screenshot](images/output1.png)
 
-- What state did the pod end up in? (`Running`, `Completed`, something else?)
+### 5. Check the permissions
+Use `kubectl auth can-i` to answer each of these and write down the result:
+
+| # | What we're checking | Your answer |
+|---|---------------------|-------------|
+| 1 | Can `student` **get** pods in `anyops-rbac`? | yes |
+| 2 | Can `student` **list** pods in `anyops-rbac`? | yes |
+| 3 | Can `student` **delete** pods in `anyops-rbac`? | no |
+| 4 | Can `student` read **secrets** in `anyops-rbac`? | no |
+| 5 | Can `student` get pods in the `default` namespace? | no |
 
 ![App Screenshot](images/output2.png)
 
-- What's in the pod's logs?
+> The `--as=system:serviceaccount:<namespace>:<sa-name>` flag lets you check permissions as if you were that account.
+
+### 6. Try it for real (optional, but recommended)
+Run a simple `nginx` pod in the namespace, then list pods as `student`. Did it work? Now try to delete that pod as `student` — what happened, and what exactly does the error message say?
 
 ![App Screenshot](images/output3.png)
-### 2. A CronJob that runs every 2 minutes
 
-Create a CronJob named `date-logger` that:
-- runs **every 2 minutes**
-- logs the current time on each run
-- uses the `busybox` image
+## Tasks
+
+### 1. Create a namespace
+Create a namespace called `anyops-rbac`. Every resource below must live inside it.
+
+### 2. Create a ServiceAccount
+Create a ServiceAccount called `student`.
+
+### 3. Create a Role
+Create a Role called `pod-reader`. It may **only** `get`, `list` and `watch` pods.
+Nothing else: no `create`, no `delete`, no secrets.
 
 
-After creating it, **watch for at least 5-6 minutes** and check:
+### 4. Create a RoleBinding
+Create a RoleBinding called `app-reader` that binds the `student` ServiceAccount to the `pod-reader` Role.
 
-- Does the CronJob show up? (`kubectl get cronjob -n anyops-cron`)
+![App Screenshot](images/output1.png)
 
-![App Screenshot](images/output4.png)
+### 5. Check the permissions
+Use `kubectl auth can-i` to answer each of these and write down the result:
 
-- How many Jobs were created?
+| # | What we're checking | Your answer |
+|---|---------------------|-------------|
+| 1 | Can `student` **get** pods in `anyops-rbac`? | yes |
+| 2 | Can `student` **list** pods in `anyops-rbac`? | yes |
+| 3 | Can `student` **delete** pods in `anyops-rbac`? | no |
+| 4 | Can `student` read **secrets** in `anyops-rbac`? | no |
+| 5 | Can `student` get pods in the `default` namespace? | no |
 
-![App Screenshot](images/output5.png)
+![App Screenshot](images/output2.png)
 
-- What's in each Job's logs? Are the timestamps 2 minutes apart?
+> The `--as=system:serviceaccount:<namespace>:<sa-name>` flag lets you check permissions as if you were that account.
 
-![App Screenshot](images/output6.png)
+### 6. Try it for real (optional, but recommended)
+Run a simple `nginx` pod in the namespace, then list pods as `student`. Did it work? Now try to delete that pod as `student` — what happened, and what exactly does the error message say?
 
-### 3. Managing it (small bonus)
-
-- **Suspend** the CronJob temporarily, then resume it.
-- Trigger one Job from the CronJob **right now**, without waiting for the schedule.
-
-![App Screenshot](images/output7.png)
-
-![App Screenshot](images/output8.png)
+![App Screenshot](images/output3.png)
 ## Answers
 
-*  Why doesn't a Job's pod disappear after it finishes — why does it stay in `Completed`?
+## 1. Why isn't creating just a Role enough?
 
-        Kubernetes keeps completed Job pods so you can inspect their logs, check exit codes, and debug any issues after the process finishes.
+A `Role` only **defines** a set of permissions (which verbs are allowed on which resources) — it doesn't say **who** gets those permissions. It's like writing a job description but never assigning anyone to the job.
 
-        A Kubernetes Job pod stays in the Completed state because Kubernetes intentionally retains finished pods so you can inspect their logs and review their exit status.
+You need a `RoleBinding` to actually connect the Role to a subject (a `User`, `Group`, or `ServiceAccount`). Without the binding, the Role exists in the cluster but grants access to nobody.
 
-*  Can you use `restartPolicy: Always` in a Job? Why or why not?
+This is exactly what happened in the walkthrough: the `pod-reader` Role existed after `kubectl apply`, but `student` still had no permissions until the `app-reader` RoleBinding was created to tie the Role to the `student` ServiceAccount.
 
-        No, you cannot use restartPolicy: Always in a Kubernetes Job because Kubernetes rejects it with a validation error.
+## 2. What's the difference between a Role and a ClusterRole?
 
-        Job definition: A Kubernetes Job is designed to run a task to completion and then stop.
+| | Role | ClusterRole |
+|---|---|---|
+| Scope | Namespace-scoped | Cluster-scoped |
+| Applies to | Resources in one namespace only | Can apply cluster-wide, or to non-namespaced resources |
+| Example use | `pod-reader` in `anyops-rbac` only | Access to `nodes`, `persistentvolumes`, `namespaces`, or a reusable role across many namespaces |
 
-        Allowed values: The restartPolicy for a Job's Pod template is restricted strictly to OnFailure or Never.
+- A **Role**'s permissions only apply within the one namespace it's created in. Even when bound, the subject can't use those permissions in any other namespace.
+- A **ClusterRole** is reusable and can grant permissions across all namespaces, or be used for cluster-level resources that don't belong to any namespace at all.
 
-        Conflict of purpose: Always is meant for long-running, continuous services (like Deployments or DaemonSets) that should never finish. If a Job container finished successfully with an exit code of 0 and the policy was Always, the system would endlessly restart the finished container, defeating the purpose of a finite task.
+Whether a ClusterRole's permissions apply cluster-wide or just to one namespace depends on **how it's bound**:
+- `ClusterRoleBinding` → applies cluster-wide.
+- `RoleBinding` (referencing a ClusterRole) → applies only within that one namespace.
 
-* Do `*/2 * * * *` and `2 * * * *` mean the same thing?
+This last pattern is common: define a ClusterRole once, then bind it in multiple namespaces via separate RoleBindings — avoiding duplicate Role definitions.
 
-        No, */2 * * * * and 2 * * * * do not mean the same thing.
+## 3. If `watch` were missing from `pod-reader`, would `kubectl get pods -w` still work?
 
-        */2 * * * * (Every 2 minutes):Runs repeatedly throughout the hour.Triggers at minute 0, 2, 4, 6, 8, and so on, all the way to minute 58. Executes 30 times every hour.
-        2 * * * * (At minute 2):Runs only once per hour.Triggers strictly when the clock hits 2 minutes past the hour (e.g., 1:02, 2:02, 3:02). Executes 1 time every hour.
+**No.**
 
-* Does a CronJob keep old Jobs forever? How would you limit that?
+The `-w` (`--watch`) flag opens a **watch** connection to the API server to stream changes in real time. This uses the `watch` verb specifically — distinct from `get` or `list`.
 
-        No, a Kubernetes CronJob does not keep old Jobs forever; it automatically cleans them up using built-in history limits.
+Without `watch` in the Role, the command would fail with something like:
 
-        apiVersion: batch/v1
-        kind: CronJob
-        metadata:
-        name: example-cron
-        spec:
-        schedule: "0 * * * *"
-        successfulJobsHistoryLimit: 5  # Keep last 5 successful jobs
-        failedJobsHistoryLimit: 2     # Keep last 2 failed jobs
-        jobTemplate:
-            spec:
-            template:
-                spec:
-                restartPolicy: OnFailure
-                containers:
-                - name: task
-                    image: busybox
+```
+Error from server (Forbidden): pods is forbidden: User "student" cannot watch resource "pods" in API group "" in the namespace "anyops-rbac"
+```
 
-*  If the command inside a Job exits with an error, what does Kubernetes do?
+`get` and `list` would still work fine for one-time reads — only the streaming/watch behavior would break.
 
-        When a command inside a Kubernetes Job exits with an error, Kubernetes determines its behavior based on the restartPolicy configured in the Pod template, eventually respecting the Job's backoffLimit.
+## 4. If you wanted to give the same Role to 5 different ServiceAccounts, how many Roles and how many RoleBindings would you write?
 
+- **1 Role** — permissions are reused, not duplicated.
+- **5 RoleBindings** — one per ServiceAccount, in the "one binding per grant" mental model.
+
+**Alternative:** a single RoleBinding can list multiple subjects, so it's also valid to use **1 Role + 1 RoleBinding**:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-reader-binding
+  namespace: anyops-rbac
+subjects:
+- kind: ServiceAccount
+  name: student1
+  namespace: anyops-rbac
+- kind: ServiceAccount
+  name: student2
+  namespace: anyops-rbac
+- kind: ServiceAccount
+  name: student3
+  namespace: anyops-rbac
+- kind: ServiceAccount
+  name: student4
+  namespace: anyops-rbac
+- kind: ServiceAccount
+  name: student5
+  namespace: anyops-rbac
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+
+Both approaches are valid — "5 RoleBindings" is the more common/expected answer, but the multi-subject shortcut is worth knowing.
