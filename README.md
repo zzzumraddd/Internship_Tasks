@@ -39,43 +39,6 @@ Run a simple `nginx` pod in the namespace, then list pods as `student`. Did it w
 
 ![App Screenshot](images/output3.png)
 
-## Tasks
-
-### 1. Create a namespace
-Create a namespace called `anyops-rbac`. Every resource below must live inside it.
-
-### 2. Create a ServiceAccount
-Create a ServiceAccount called `student`.
-
-### 3. Create a Role
-Create a Role called `pod-reader`. It may **only** `get`, `list` and `watch` pods.
-Nothing else: no `create`, no `delete`, no secrets.
-
-
-### 4. Create a RoleBinding
-Create a RoleBinding called `app-reader` that binds the `student` ServiceAccount to the `pod-reader` Role.
-
-![App Screenshot](images/output1.png)
-
-### 5. Check the permissions
-Use `kubectl auth can-i` to answer each of these and write down the result:
-
-| # | What we're checking | Your answer |
-|---|---------------------|-------------|
-| 1 | Can `student` **get** pods in `anyops-rbac`? | yes |
-| 2 | Can `student` **list** pods in `anyops-rbac`? | yes |
-| 3 | Can `student` **delete** pods in `anyops-rbac`? | no |
-| 4 | Can `student` read **secrets** in `anyops-rbac`? | no |
-| 5 | Can `student` get pods in the `default` namespace? | no |
-
-![App Screenshot](images/output2.png)
-
-> The `--as=system:serviceaccount:<namespace>:<sa-name>` flag lets you check permissions as if you were that account.
-
-### 6. Try it for real (optional, but recommended)
-Run a simple `nginx` pod in the namespace, then list pods as `student`. Did it work? Now try to delete that pod as `student` — what happened, and what exactly does the error message say?
-
-![App Screenshot](images/output3.png)
 ## Answers
 
 ## 1. Why isn't creating just a Role enough?
