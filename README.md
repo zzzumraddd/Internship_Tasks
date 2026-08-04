@@ -29,25 +29,6 @@ Once it's created, check:
 - What's in the pod's logs?
 
 ![App Screenshot](images/output3.png)
-
-### 1. A Job that runs once and stops
-Create a Job named `print-date` that:
-- uses the `busybox` image
-- prints the current date
-- finishes and does not restart
-
-Once it's created, check:
-- What's the Job's status? (`kubectl get jobs -n anyops-cron`)
-
-![App Screenshot](images/output1.png)
-
-- What state did the pod end up in? (`Running`, `Completed`, something else?)
-
-![App Screenshot](images/output2.png)
-
-- What's in the pod's logs?
-
-![App Screenshot](images/output3.png)
 ### 2. A CronJob that runs every 2 minutes
 
 Create a CronJob named `date-logger` that:
