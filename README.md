@@ -1,293 +1,228 @@
-# Homework: Helm
+# Homework: Kubernetes HPA (Horizontal Pod Autoscaler)
 
-In this lab I learned Helm — the package manager for Kubernetes.
+In this lab I learned how HPA automatically scales pods up and down based on CPU load.
 
 ---
 
-## Part 1 — Create my own chart
+## Important requirements
 
-### 1.1 Create a chart
+For HPA to work:
+
+1. The container must have CPU **requests**
+2. **metrics-server** must be running in the cluster
+
+---
+
+## Files used
+
+| File | What it is |
+| --- | --- |
+| `php-apache-deployment.yaml` | Deployment `php-apache` with CPU requests/limits |
+| `service.yaml` | Service for the app (NodePort) |
+| `hpa.yaml` | HPA: min 1, max 5, target CPU 50% |
+
+---
+
+## 1. Check metrics
 
 ```bash
-helm create myweb
-ls myweb/
+kubectl top nodes
+kubectl top pods -A
 ```
 
 ![App Screenshot](images/output1.jpeg)
 
-Chart structure:
+Metrics work, so metrics-server is installed.
 
-```text
-myweb/
-  Chart.yaml
-  values.yaml
-  charts/
-  templates/
-```
+---
 
-### 1.2 What each part is for
+## 2. Deploy the test app
 
-| File / folder | Purpose |
-| --- | --- |
-| `Chart.yaml` | Chart metadata: name, version, description, app version |
-| `values.yaml` | Default config values (replicas, image, service, etc.) |
-| `templates/` | Kubernetes YAML templates. Helm fills them with values |
-| `charts/` | Other charts this chart can depend on (subcharts) |
-| `templates/_helpers.tpl` | Reusable template snippets (named helpers) |
+Create namespace and apply manifests:
 
-### 1.3 Edit `values.yaml`
-
-I set:
-
-```yaml
-replicaCount: 2
-
-image:
-  repository: nginx
-  pullPolicy: IfNotPresent
-  tag: "1.27"
+```bash
+kubectl create namespace hpa
+kubectl apply -f php-apache-deployment.yaml
+kubectl apply -f service.yaml
+kubectl get pods -n hpa
 ```
 
 ![App Screenshot](images/output2.jpeg)
 
-Preview without installing to the cluster:
+Deployment uses CPU requests/limits, for example:
 
-```bash
-helm template myweb ./myweb | grep -A2 replicas
+```yaml
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "100m"
+  limits:
+    memory: "128Mi"
+    cpu: "128m"
 ```
-
-Result: `replicas: 2`
-
-![App Screenshot](images/output3.jpeg)
 
 ---
 
-## Part 2 — Install a ready-made chart (Bitnami nginx)
-
-### 2.1 Create a namespace
+## 3. Create the HPA
 
 ```bash
-kubectl create namespace web2
+kubectl apply -f hpa.yaml
+kubectl get hpa -n hpa
 ```
 
-> In my cluster I used namespace **web2**.
+HPA settings:
 
-### 2.2 Install Bitnami nginx with Helm
+- target: Deployment `php-apache`
+- minReplicas: **1**
+- maxReplicas: **5**
+- average CPU utilization: **50%**
+
+![App Screenshot](images/output3.jpeg)
+
+Example output:
+
+```text
+NAME   REFERENCE             TARGETS      MINPODS   MAXPODS   REPLICAS
+hpa    Deployment/php-apache cpu: 1%/50%   1         5         2
+```
+
+---
+
+## 4. Generate load and scale up
+
+Watch HPA in one terminal:
 
 ```bash
-helm install my-release oci://registry-1.docker.io/bitnamicharts/nginx -n web2
+kubectl get hpa hpa -n hpa --watch
 ```
+
+In another terminal, start the load generator:
+
+```bash
+kubectl run -i --tty load-generator --rm --image=curlimages/curl --restart=Never -n hpa -- \
+  /bin/sh -c "while true; do curl -s --data 'millicores=300&durationSec=5' http://php-apache/ConsumeCPU; done"
+```
+
+This sends CPU-burn requests to `http://php-apache/ConsumeCPU` in a loop.
+
+When CPU goes above 50%, HPA adds more pods.
 
 ![App Screenshot](images/output4.jpeg)
 
-Check pods and release:
+CPU went up (for example 60% -> 128%) and replicas increased:
+
+**2 -> 3 -> 4 -> 5**
+
+Check pods:
 
 ```bash
-kubectl get pods -n web2
-helm list -n web2
+kubectl get pods -n hpa
 ```
 
 ![App Screenshot](images/output5.jpeg)
 
+Now there are more `php-apache` pods (up to max 5), plus the load-generator pod.
+
+---
+
+## 5. Stop load and scale down
+
+Stop the load generator with **Ctrl+C**.
+
+Because of `--rm`, the load-generator pod is removed automatically.
+
+If it is still there:
+
+```bash
+kubectl delete pod load-generator -n hpa
+```
+
+Watch again:
+
+```bash
+kubectl get hpa hpa -n hpa --watch
+```
+
 ![App Screenshot](images/output6.jpeg)
 
-Pod `my-release-nginx-...` is **Running**.
+CPU went back near 0% and replicas scaled down (for example **5 -> 1**).
 
-**Note:** Bitnami charts may warn about image changes. If you get `ImagePullBackOff`, use:
-
-```bash
-helm upgrade my-release oci://registry-1.docker.io/bitnamicharts/nginx -n web2 \
-  --set image.registry=docker.io \
-  --set image.repository=bitnamilegacy/nginx
-```
-
----
-
-## Part 3 — Increase the pod count
-
-### 3.1 With `--set`
-
-I installed my own chart, then upgraded replicas to 3:
-
-```bash
-helm upgrade my-release myweb --set replicaCount=3 -n web2
-kubectl get pods -n web2
-```
-
-![App Screenshot](images/output7.jpeg)
-
-![App Screenshot](images/output8.jpeg)
-
-Now there are **3** pods for `my-release-myweb`.
-
-### 3.2 With a values file (`-f`)
-
-I created `myvalues.yaml` (or `my-values.yaml`) and installed another release:
-
-```bash
-helm install my-release2 . -f myvalues.yaml -n web2
-kubectl get pods -n web2
-helm list -n web2
-```
-
-![App Screenshot](images/output9.jpeg)
-
-![App Screenshot](images/output10.jpeg)
-
-Both releases are deployed:
-
-- `my-release` — revision 2  
-- `my-release2` — revision 1  
-
-### Question: `--set` or `-f` — which is better?
-
-**`-f` (values file) is better** for real work.
-
-| | `--set` | `-f values file` |
-| --- | --- | --- |
-| Good for | Quick tests, one small change | Real installs and team work |
-| Easy to save / share | No | Yes |
-| Easy to review in git | No | Yes |
-| Many values | Hard and messy | Clear |
-
-Use `--set` for fast experiments. Use a values file when you want a clear, repeatable config.
-
----
-
-## Part 4 — Template helpers
-
-### 4.1 What is `_helpers.tpl`?
-
-`templates/_helpers.tpl` holds **named templates** (helpers).
-
-Examples already in the chart:
-
-- `myweb.name`
-- `myweb.fullname`
-- `myweb.labels`
-- `myweb.selectorLabels`
-
-They are reusable pieces of template code.  
-You call them like this:
-
-```yaml
-{{ include "myweb.fullname" . }}
-{{ include "myweb.labels" . }}
-```
-
-**Why useful?**  
-So you do not copy the same name/label logic in every file (Deployment, Service, etc.).  
-Change the helper once → all templates use the new value. This is **DRY** (Don’t Repeat Yourself).
-
-### 4.2 My own helper
-
-I added a helper for app environment in `_helpers.tpl`, for example:
-
-```yaml
-{{- define "myweb.env" -}}
-{{- default "staging" .Values.appEnv -}}
-{{- end -}}
-```
-
-And in `values.yaml`:
-
-```yaml
-appEnv: staging
-```
-
-Then I used it in `deployment.yaml` (label or annotation), for example:
-
-```yaml
-APP_ENV: {{ include "myweb.env" . | quote }}
-```
-
-Check:
-
-```bash
-helm template myweb ./myweb
-```
-
-The rendered output shows the helper value, for example:
-
-```yaml
-APP_ENV: "staging"
-```
-
-![App Screenshot](images/output11.jpeg)
+Scale down is slower than scale up. This is normal.
 
 ---
 
 ## Answers to questions
 
-### 1. Difference between `Chart.yaml` and `values.yaml`?
+### 1. Why is CPU `requests` mandatory for HPA?
 
-| File | What it stores |
+HPA does not use only "raw CPU".
+It uses:
+
+```text
+current CPU / requested CPU
+```
+
+as a percentage.
+
+If there is no `requests.cpu`, HPA cannot calculate utilization % against the target (50%).
+So CPU requests are required for resource-based HPA.
+
+### 2. What does metrics-server do?
+
+**metrics-server** collects live resource usage (CPU/memory) from nodes and pods.
+
+Commands like:
+
+```bash
+kubectl top nodes
+kubectl top pods
+```
+
+and HPA decisions need these metrics.
+Without metrics-server, HPA often shows `<unknown>` and does not scale.
+
+### 3. Why are scale up and scale down speeds different?
+
+- **Scale up** is faster -> app should handle high load quickly
+- **Scale down** is slower -> avoid removing pods too fast if load comes back
+
+Kubernetes uses stabilization windows so the replica count does not jump up and down too much (flapping).
+
+### 4. Why do we need `minReplicas` and `maxReplicas`?
+
+| Setting | Why |
 | --- | --- |
-| `Chart.yaml` | Chart info: name, chart version, app version, description |
-| `values.yaml` | Default settings used by templates: replicas, image, ports, etc. |
+| `minReplicas` | Keep at least some pods running (availability) |
+| `maxReplicas` | Stop unlimited scaling (protect cluster CPU/RAM/cost) |
 
-`Chart.yaml` = “what is this chart?”  
-`values.yaml` = “how should it run by default?”
-
-### 2. Difference between `helm install` and `helm upgrade`?
-
-| Command | Meaning |
-| --- | --- |
-| `helm install` | Create a **new** release |
-| `helm upgrade` | Update an **existing** release |
-
-Example: first `helm install my-release ...`, later `helm upgrade my-release ...` to change replicas.
-
-### 3. Between `values.yaml` and `--set`, which one wins?
-
-**`--set` wins** over the chart’s default `values.yaml`.
-
-Order (simple view):
-
-1. chart default `values.yaml`
-2. values from `-f myvalues.yaml` (override defaults)
-3. `--set` on the command line (override again)
-
-So command-line `--set` has the highest priority.
-
-### 4. Why is `_helpers.tpl` useful? (DRY)
-
-Helpers store shared logic in one place (names, labels, env).  
-Templates only `include` them.  
-Benefit: less copy-paste, fewer mistakes, easier updates.
-
-### 5. Relationship between `{{ define }}` and `{{ include }}`?
-
-| | Role |
-| --- | --- |
-| `{{ define "name" }} ... {{ end }}` | **Create** a named helper |
-| `{{ include "name" . }}` | **Use** that helper and print its result |
-
-`define` = write the function.  
-`include` = call the function.
+In this lab: min **1**, max **5**.
 
 ---
 
 ## Commands summary
 
 ```bash
-# Part 1
-helm create myweb
-# edit myweb/values.yaml
-helm template myweb ./myweb | grep -A2 replicas
+# metrics
+kubectl top nodes
+kubectl top pods -A
 
-# Part 2
-kubectl create namespace web2
-helm install my-release oci://registry-1.docker.io/bitnamicharts/nginx -n web2
-kubectl get pods -n web2
-helm list -n web2
+# deploy
+kubectl create namespace hpa
+kubectl apply -f php-apache-deployment.yaml
+kubectl apply -f service.yaml
+kubectl apply -f hpa.yaml
 
-# Part 3
-helm upgrade my-release ./myweb --set replicaCount=3 -n web2
-helm install my-release2 ./myweb -f myvalues.yaml -n web2
+# check
+kubectl get pods -n hpa
+kubectl get hpa -n hpa
+kubectl get hpa hpa -n hpa --watch
 
-# Part 4
-helm template myweb ./myweb
+# load
+kubectl run -i --tty load-generator --rm --image=curlimages/curl --restart=Never -n hpa -- \
+  /bin/sh -c "while true; do curl -s --data 'millicores=300&durationSec=5' http://php-apache/ConsumeCPU; done"
+
+# stop load with Ctrl+C, then check
+kubectl get pods -n hpa
 ```
 
 ---
@@ -295,18 +230,14 @@ helm template myweb ./myweb
 ## Cleanup
 
 ```bash
-helm uninstall my-release -n web2
-helm uninstall my-release2 -n web2
-kubectl delete namespace web2
+kubectl delete namespace hpa
 ```
 
 ---
 
 ## What I learned
 
-- Helm packages Kubernetes YAML into a **chart**
-- A **release** is an installed instance of a chart
-- `values.yaml` / `-f` / `--set` control config
-- `helm template` previews YAML without installing
-- `helm upgrade` changes a running release
-- `_helpers.tpl` keeps templates clean with reusable snippets
+- HPA scales Pods automatically based on metrics (here CPU)
+- CPU **requests** + **metrics-server** are required
+- `minReplicas` / `maxReplicas` control the range
+- Under load, replicas go up; when load stops, replicas go down more slowly
