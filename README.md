@@ -1,41 +1,114 @@
-# DevOps Internship Portfolio
+# Prometheus Monitoring Stack
 
-**Zumradkhon Akbarova** · DevOps Intern  
-**Information-Computing Center, Ministry of Finance of the Republic of Uzbekistan**
+This Docker Compose setup runs a complete monitoring stack with:
+- **Prometheus**: Metrics collection and storage
+- **Node Exporter**: Hardware and OS metrics
+- **cAdvisor**: Container metrics
+- **Blackbox Exporter**: Endpoint/service monitoring
 
-Training labs from my DevOps internship. Work is split by topic branch — open a branch to see notes, screenshots, and configs.
+## Prerequisites
 
----
+- Docker
+- Docker Compose
 
-## Topics covered
+## Quick Start
 
-| Area | What the labs include |
-| --- | --- |
-| **Linux basics** | Process monitoring, job control, `/proc`, disk partitions, filesystems, swap |
-| **Networking** | ARP, subnetting, DNS troubleshooting, routing, NGINX virtual hosts & Gzip |
-| **Security** | UFW, firewalld rules, DNAT/MASQUERADE, SELinux contexts for NGINX |
-| **Ansible** | SSH to Ubuntu & CentOS hosts, host groups, NGINX playbook with Jinja2 template & handlers |
-| **Docker** | Build/run images, Docker Compose (app + PostgreSQL) |
-| **Kubernetes** | kubeadm lab cluster, Deployments, Services, Ingress, ConfigMaps, Secrets, Jobs/CronJobs, RBAC |
+1. **Start all services:**
+   ```bash
+   docker-compose up -d
+   ```
 
----
+2. **Access the services:**
+   - Prometheus: http://localhost:9091
+   - cAdvisor: http://localhost:8080
+   - Node Exporter: http://localhost:9100/metrics
+   - Blackbox Exporter: http://localhost:9115
 
-## Labs by branch
+## Service Ports
 
-| Topic | Branch |
-| --- | --- |
-| Linux processes | [ProcessManagementTasks](https://github.com/zzzumraddd/Internship_Tasks/tree/ProcessManagementTasks) |
-| Storage / disks | [StorageResourceManagement_Tasks](https://github.com/zzzumraddd/Internship_Tasks/tree/StorageResourceManagement_Tasks) |
-| Linux security | [LinuxSecurity_Tasks](https://github.com/zzzumraddd/Internship_Tasks/tree/LinuxSecurity_Tasks) |
-| Networking | [Networking1](https://github.com/zzzumraddd/Internship_Tasks/tree/Networking1) · [Networking2](https://github.com/zzzumraddd/Internship_Tasks/tree/Networking2) · [Networking3](https://github.com/zzzumraddd/Internship_Tasks/tree/Networking3) |
-| Ansible | [Ansible_hw1](https://github.com/zzzumraddd/Internship_Tasks/tree/Ansible_hw1) |
-| Docker | [Docker_hw](https://github.com/zzzumraddd/Internship_Tasks/tree/Docker_hw) |
-| Kubernetes | [k8s](https://github.com/zzzumraddd/Internship_Tasks/tree/k8s) · [k8s-2](https://github.com/zzzumraddd/Internship_Tasks/tree/k8s-2) · [k8s-3](https://github.com/zzzumraddd/Internship_Tasks/tree/k8s-3) · [k8s-4](https://github.com/zzzumraddd/Internship_Tasks/tree/k8s-4) |
+| Service | Port | Purpose |
+|---------|------|---------|
+| Prometheus | 9091 | Web UI & API (container port 9090) |
+| Node Exporter | 9100 | Node metrics |
+| cAdvisor | 8080 | Container metrics |
+| Blackbox Exporter | 9115 | Endpoint monitoring |
 
----
+## Configuration Files
 
-## Note
+- `prometheus.yml` - Prometheus configuration with scrape configs
+- `rules.yml` - Prometheus recording rules
+- `blackbox.yml` - Blackbox exporter probing modules
 
-These are **internship homework / lab exercises**, not production projects. Any sample passwords or hostnames in files are for demos only.
+## Common Commands
 
-**Contact:** [github.com/zzzumraddd](https://github.com/zzzumraddd) · z.akbarova@student.inha.uz
+```bash
+# Start services
+docker-compose up -d
+
+# Stop services
+docker-compose down
+
+# View logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f prometheus
+
+# Restart all services
+docker-compose restart
+
+# Remove volumes (WARNING: deletes data)
+docker-compose down -v
+```
+
+## Metrics Available
+
+See [PromQL Queries](queries.md) for five example monitoring queries, explanations,
+and Prometheus UI results.
+
+### Node Exporter
+- CPU, memory, disk, network usage
+- System uptime and load averages
+- Filesystem utilization
+
+### cAdvisor
+- Container CPU, memory usage
+- Container network I/O
+- Container filesystem metrics
+
+### Blackbox Exporter
+- HTTP endpoint probes (success/latency)
+- TCP connectivity checks
+- DNS resolution checks
+- ICMP ping checks
+
+## Customization
+
+Edit `prometheus.yml` to:
+- Add more scrape targets
+- Change scrape intervals
+- Add alerting rules
+
+Edit `blackbox.yml` to:
+- Add more probing modules
+- Modify timeout/retry settings
+- Add SNMP or other protocol checks
+
+## Troubleshooting
+
+**Containers not starting:**
+```bash
+docker-compose logs
+```
+
+**Connection refused between services:**
+- Services must use service names (not localhost)
+- Example: `http://prometheus:9090` instead of `http://localhost:9090`
+
+**Permission denied errors (especially cAdvisor):**
+- cAdvisor requires privileged access to read container metrics
+- This is configured in docker-compose.yml
+
+**Prometheus not scraping targets:**
+- Check Prometheus UI at http://localhost:9091/targets
+- Verify service names in prometheus.yml match docker-compose.yml service names
