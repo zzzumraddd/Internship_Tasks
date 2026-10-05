@@ -1,0 +1,14 @@
+apiVersion: 1
+
+providers:
+  - name: Stage 1
+    orgId: 1
+    folder: Stage 1
+    folderUid: stage1
+    type: file
+    disableDeletion: true
+    editable: false
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
