@@ -1,0 +1,141 @@
+name: victoria-metrics-monitoring
+
+x-secure-service: &secure-service
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  networks:
+    - monitoring
+
+services:
+  victoriametrics:
+    <<: *secure-service
+    image: victoriametrics/victoria-metrics:v1.153.0
+    command:
+      - -storageDataPath=/storage
+      - -retentionPeriod=${VM_RETENTION_PERIOD:-30d}
+      - -httpListenAddr=:8428
+      - -vmalert.proxyURL=http://vmalert:8880
+    expose:
+      - "8428"
+    volumes:
+      - vm_data:/storage
+    healthcheck:
+      # Use IPv4 explicitly; localhost can resolve to ::1 while VM listens on IPv4.
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8428/health]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  vmagent:
+    <<: *secure-service
+    image: victoriametrics/vmagent:v1.153.0
+    command:
+      - -promscrape.config=/etc/vmagent/prometheus.yml
+      - -remoteWrite.url=http://victoriametrics:8428/api/v1/write
+      - -remoteWrite.tmpDataPath=/vmagent-data
+      - -remoteWrite.maxDiskUsagePerURL=1GB
+      - -httpListenAddr=:8429
+    expose:
+      - "8429"
+    volumes:
+      - ./prometheus.yml:/etc/vmagent/prometheus.yml:ro
+      - vmagent_data:/vmagent-data
+    depends_on:
+      victoriametrics:
+        condition: service_healthy
+
+  vmalert:
+    <<: *secure-service
+    image: victoriametrics/vmalert:v1.153.0
+    command:
+      - -rule=/etc/vmalert/rules.yml
+      - -datasource.url=http://victoriametrics:8428
+      - -remoteWrite.url=http://victoriametrics:8428
+      - -remoteRead.url=http://victoriametrics:8428
+      - -httpListenAddr=:8880
+    expose:
+      - "8880"
+    volumes:
+      - ./rules.yml:/etc/vmalert/rules.yml:ro
+    depends_on:
+      victoriametrics:
+        condition: service_healthy
+
+  grafana:
+    <<: *secure-service
+    image: grafana/grafana:12.2.0
+    ports:
+      - 127.0.0.1:${GRAFANA_PORT:-3002}:3000
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER in .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_COOKIE_SECURE: "false"
+      GF_SECURITY_COOKIE_SAMESITE: strict
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      victoriametrics:
+        condition: service_healthy
+
+  node_exporter:
+    <<: *secure-service
+    image: prom/node-exporter:v1.9.1
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    expose:
+      - "9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+
+  cadvisor:
+    restart: unless-stopped
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    privileged: true
+    security_opt:
+      - no-new-privileges:true
+    expose:
+      - "8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    networks:
+      - monitoring
+
+  blackbox_exporter:
+    <<: *secure-service
+    image: prom/blackbox-exporter:v0.27.0
+    command:
+      - --config.file=/etc/blackbox_exporter/blackbox.yml
+    expose:
+      - "9115"
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+
+volumes:
+  vm_data:
+  vmagent_data:
+  grafana_data:
+
+networks:
+  monitoring:
+    driver: bridge

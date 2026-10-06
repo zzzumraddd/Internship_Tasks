@@ -16,7 +16,7 @@ This Docker Compose setup runs a complete monitoring stack with:
 
 1. **Start all services:**
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 2. **Access the services:**
@@ -62,7 +62,7 @@ Grafana may ask you to replace the default password after the first login. If
 port 3000 is unavailable, choose another host port before starting the service:
 
 ```bash
-GRAFANA_PORT=3001 docker-compose up -d grafana
+GRAFANA_PORT=3001 docker compose up -d grafana
 ```
 
 ### Provisioned data source
@@ -82,6 +82,12 @@ All dashboards are placed in the **Stage 1** folder.
 | Stage 1 Overview | `stage1-overview` | Compact overview of target, node, container, and Blackbox metrics |
 | Node Exporter Full | `rYdddlPWk` | Detailed Node Exporter dashboard imported from Grafana dashboard 1860 |
 
+Direct dashboard links:
+
+- Infra Overview: <http://localhost:3000/d/infra-overview>
+- Stage 1 Overview: <http://localhost:3000/d/stage1-overview>
+- Node Exporter Full: <http://localhost:3000/d/rYdddlPWk>
+
 The **Infra Overview** dashboard contains eight panels:
 
 - CPU usage
@@ -92,6 +98,11 @@ The **Infra Overview** dashboard contains eight panels:
 - Top containers by CPU usage
 - Top containers by RAM usage
 - Blackbox endpoint status
+
+The **Top containers by CPU** and **Top containers by RAM** panels are in the
+lower half of Infra Overview. On Docker Desktop, cAdvisor exposes container IDs
+but may not expose container-name labels, so these panels identify containers
+using `/docker/<container-id>`.
 
 Use `$instance` to select one or more Node Exporter targets and `$interval` to
 control the rate-calculation window. CPU, RAM, disk, load, and Blackbox stat
@@ -109,22 +120,22 @@ are not the source of truth and can be replaced by provisioning.
 
 ```bash
 # Start services
-docker-compose up -d
+docker compose up -d
 
 # Stop services
-docker-compose down
+docker compose down
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # View specific service logs
-docker-compose logs -f prometheus
+docker compose logs -f prometheus
 
 # Restart all services
-docker-compose restart
+docker compose restart
 
 # Remove volumes (WARNING: deletes data)
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Metrics Available
@@ -164,7 +175,7 @@ Edit `blackbox.yml` to:
 
 **Containers not starting:**
 ```bash
-docker-compose logs
+docker compose logs
 ```
 
 **Connection refused between services:**
@@ -173,9 +184,9 @@ docker-compose logs
 
 **Grafana data source or dashboard missing:**
 - Both are managed through files under `grafana/`; do not configure them in the UI
-- Restart Grafana after changing provisioning files: `docker-compose restart grafana`
+- Restart Grafana after changing provisioning files: `docker compose restart grafana`
 - If port 3000 is already in use, start with another host port, for example:
-  `GRAFANA_PORT=3001 docker-compose up -d grafana`
+  `GRAFANA_PORT=3001 docker compose up -d grafana`
 
 **Permission denied errors (especially cAdvisor):**
 - cAdvisor requires privileged access to read container metrics

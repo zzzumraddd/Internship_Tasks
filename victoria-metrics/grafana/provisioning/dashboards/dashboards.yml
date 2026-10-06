@@ -1,0 +1,15 @@
+apiVersion: 1
+
+providers:
+  - name: VictoriaMetrics
+    orgId: 1
+    folder: VictoriaMetrics
+    folderUid: victoriametrics
+    type: file
+    disableDeletion: true
+    editable: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
+
