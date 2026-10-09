@@ -1,5 +1,8 @@
 # VictoriaMetrics monitoring stack
 
+> Looking for the one-container logs tutorial instead? See
+> [`../victoria-logs/README.md`](../victoria-logs/README.md).
+
 This is a separate replacement for the repository's Prometheus Compose stack.
 It collects the same Node Exporter, cAdvisor, and Blackbox metrics and loads the
 same Grafana dashboards. The original stack is unchanged.
