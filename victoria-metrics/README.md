@@ -3,9 +3,9 @@
 > Looking for the one-container logs tutorial instead? See
 > [`../victoria-logs/README.md`](../victoria-logs/README.md).
 
-This is a separate replacement for the repository's Prometheus Compose stack.
-It collects the same Node Exporter, cAdvisor, and Blackbox metrics and loads the
-same Grafana dashboards. The original stack is unchanged.
+This directory is a self-contained metrics and dashboard stack. It uses
+VictoriaMetrics for storage and vmagent for scraping; no Prometheus server is
+required. Grafana is included and automatically loads the bundled dashboards.
 
 ## Architecture (plain English)
 
@@ -37,7 +37,16 @@ docker compose ps
 
 Open <http://127.0.0.1:3002>. The username and password are in your untracked
 `.env` file. The existing dashboards are provisioned into the VictoriaMetrics
-folder. To inspect scrape health without publishing vmagent, run:
+folder. No data source or dashboard needs to be added through the UI.
+
+Direct dashboard links:
+
+- Infra Overview: <http://127.0.0.1:3002/d/infra-overview>
+- Stage 1 Overview: <http://127.0.0.1:3002/d/stage1-overview>
+- Node Exporter Full: <http://127.0.0.1:3002/d/rYdddlPWk>
+
+Allow roughly 30 seconds for the first samples to appear. To inspect scrape
+health without publishing vmagent, run:
 
 ```bash
 docker compose exec vmagent wget -qO- http://localhost:8429/targets

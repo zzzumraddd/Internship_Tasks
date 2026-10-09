@@ -1,41 +1,110 @@
-# DevOps Internship Portfolio
+# VictoriaMetrics and VictoriaLogs lab
 
-**Zumradkhon Akbarova** · DevOps Intern  
-**Information-Computing Center, Ministry of Finance of the Republic of Uzbekistan**
+This branch demonstrates a complete metrics stack and a separate, minimal logs
+example. It does not run a Prometheus server.
 
-Training labs from my DevOps internship. Work is split by topic branch — open a branch to see notes, screenshots, and configs.
+## What is included
 
----
+- **VictoriaMetrics** stores metrics.
+- **vmagent** scrapes Node Exporter, cAdvisor, and Blackbox Exporter.
+- **vmalert** evaluates the recording rules.
+- **Grafana** is automatically configured with the VictoriaMetrics data source
+  and three dashboards.
+- **VictoriaLogs** runs independently for JSON log ingestion and LogsQL queries.
 
-## Topics covered
+```text
+Node Exporter -----\
+cAdvisor -----------+--> vmagent --> VictoriaMetrics --> Grafana
+Blackbox Exporter --/                       ^
+                                            |
+                                         vmalert
 
-| Area | What the labs include |
-| --- | --- |
-| **Linux basics** | Process monitoring, job control, `/proc`, disk partitions, filesystems, swap |
-| **Networking** | ARP, subnetting, DNS troubleshooting, routing, NGINX virtual hosts & Gzip |
-| **Security** | UFW, firewalld rules, DNAT/MASQUERADE, SELinux contexts for NGINX |
-| **Ansible** | SSH to Ubuntu & CentOS hosts, host groups, NGINX playbook with Jinja2 template & handlers |
-| **Docker** | Build/run images, Docker Compose (app + PostgreSQL) |
-| **Kubernetes** | kubeadm lab cluster, Deployments, Services, Ingress, ConfigMaps, Secrets, Jobs/CronJobs, RBAC |
+JSON logs -----------------------------> VictoriaLogs --> VMUI
+```
 
----
+## Requirements
 
-## Labs by branch
+- Docker
+- Docker Compose v2 (`docker compose`)
+- `curl` for the VictoriaLogs example
 
-| Topic | Branch |
-| --- | --- |
-| Linux processes | [ProcessManagementTasks](https://github.com/zzzumraddd/Internship_Tasks/tree/ProcessManagementTasks) |
-| Storage / disks | [StorageResourceManagement_Tasks](https://github.com/zzzumraddd/Internship_Tasks/tree/StorageResourceManagement_Tasks) |
-| Linux security | [LinuxSecurity_Tasks](https://github.com/zzzumraddd/Internship_Tasks/tree/LinuxSecurity_Tasks) |
-| Networking | [Networking1](https://github.com/zzzumraddd/Internship_Tasks/tree/Networking1) · [Networking2](https://github.com/zzzumraddd/Internship_Tasks/tree/Networking2) · [Networking3](https://github.com/zzzumraddd/Internship_Tasks/tree/Networking3) |
-| Ansible | [Ansible_hw1](https://github.com/zzzumraddd/Internship_Tasks/tree/Ansible_hw1) |
-| Docker | [Docker_hw](https://github.com/zzzumraddd/Internship_Tasks/tree/Docker_hw) |
-| Kubernetes | [k8s](https://github.com/zzzumraddd/Internship_Tasks/tree/k8s) · [k8s-2](https://github.com/zzzumraddd/Internship_Tasks/tree/k8s-2) · [k8s-3](https://github.com/zzzumraddd/Internship_Tasks/tree/k8s-3) · [k8s-4](https://github.com/zzzumraddd/Internship_Tasks/tree/k8s-4) |
+## Run the metrics stack with Grafana
 
----
+From the repository root:
 
-## Note
+```bash
+cd victoria-metrics
+cp .env.example .env
+docker compose config --quiet
+docker compose up -d
+docker compose ps
+```
 
-These are **internship homework / lab exercises**, not production projects. Any sample passwords or hostnames in files are for demos only.
+The example credentials are suitable only for this loopback-only local lab:
 
-**Contact:** [github.com/zzzumraddd](https://github.com/zzzumraddd) · z.akbarova@student.inha.uz
+- URL: <http://127.0.0.1:3002>
+- Username: `admin`
+- Password: `change-me-to-a-long-random-password`
+
+For anything beyond local evaluation, change `GRAFANA_ADMIN_PASSWORD` in
+`victoria-metrics/.env` before starting the stack.
+
+Grafana provisions the VictoriaMetrics data source and dashboards without any
+manual import. After signing in, open **Dashboards** and select the
+**VictoriaMetrics** folder, or use these direct links:
+
+- [Infra Overview](http://127.0.0.1:3002/d/infra-overview)
+- [Stage 1 Overview](http://127.0.0.1:3002/d/stage1-overview)
+- [Node Exporter Full](http://127.0.0.1:3002/d/rYdddlPWk)
+
+Allow roughly 30 seconds after startup for vmagent to collect the first samples.
+Confirm that the services and scrape targets are healthy with:
+
+```bash
+docker compose ps
+docker compose exec vmagent wget -qO- http://localhost:8429/targets
+```
+
+Detailed configuration and troubleshooting are in
+[`victoria-metrics/README.md`](victoria-metrics/README.md).
+
+## Run the standalone logs example
+
+VictoriaLogs is intentionally a separate Compose project. From the repository
+root, open another terminal and run:
+
+```bash
+cd victoria-logs
+docker compose up -d
+docker compose ps
+
+curl --fail-with-body \
+  -H 'Content-Type: application/stream+json' \
+  --data-binary @sample.jsonl \
+  'http://127.0.0.1:9428/insert/jsonline?_stream_fields=service,level&_time_field=timestamp&_msg_field=message'
+```
+
+Open the built-in VMUI at <http://127.0.0.1:9428/select/vmui> and execute:
+
+```logsql
+*
+```
+
+The checkout and payment messages are synthetic tutorial data from
+`victoria-logs/sample.jsonl`, not real application events. See
+[`victoria-logs/README.md`](victoria-logs/README.md) for more queries.
+
+## Stop the lab
+
+Run the following command once in each project directory:
+
+```bash
+docker compose down
+```
+
+Add `-v` only when you also want to delete stored metrics, logs, and Grafana
+state:
+
+```bash
+docker compose down -v
+```
