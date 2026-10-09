@@ -1,0 +1,13 @@
+groups:
+  - name: monitoring_recording_rules
+    interval: 15s
+    rules:
+      - record: instance:node_cpu_busy_percent:rate5m
+        expr: 100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])))
+
+      - record: node_filesystem_free_bytes:predict_linear_24h
+        expr: predict_linear(node_filesystem_free_bytes[2h], 24 * 3600)
+
+      - record: instance_job:scrape_duration_seconds:max
+        expr: max by (instance, job) (scrape_duration_seconds)
+
