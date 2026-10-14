@@ -1,4 +1,4 @@
-# VictoriaMetrics and VictoriaLogs lab
+# Monitoring and logs lab
 
 This branch demonstrates a complete metrics stack and a separate, minimal logs
 example. It does not run a Prometheus server.
@@ -36,7 +36,7 @@ JSON logs -----------------------------> VictoriaLogs --> VMUI
 From the repository root:
 
 ```bash
-cd victoria-metrics
+cd monitoring
 cp .env.example .env
 docker compose config --quiet
 docker compose up -d
@@ -50,11 +50,11 @@ The example credentials are suitable only for this loopback-only local lab:
 - Password: `change-me-to-a-long-random-password`
 
 For anything beyond local evaluation, change `GRAFANA_ADMIN_PASSWORD` in
-`victoria-metrics/.env` before starting the stack.
+`monitoring/.env` before starting the stack.
 
 Grafana provisions the VictoriaMetrics data source and dashboards without any
 manual import. After signing in, open **Dashboards** and select the
-**VictoriaMetrics** folder, or use these direct links:
+**Monitoring** folder, or use these direct links:
 
 - [Infra Overview](http://127.0.0.1:3002/d/infra-overview)
 - [Stage 1 Overview](http://127.0.0.1:3002/d/stage1-overview)
@@ -69,7 +69,7 @@ docker compose exec vmagent wget -qO- http://localhost:8429/targets
 ```
 
 Detailed configuration and troubleshooting are in
-[`victoria-metrics/README.md`](victoria-metrics/README.md).
+[`monitoring/README.md`](monitoring/README.md).
 
 ## Run the standalone logs example
 
@@ -115,7 +115,7 @@ docker compose down -v
 ## Docker logs assignment
 
 The Loki, Alloy, nginx, dashboard, five LogQL queries, and Telegram alert
-are documented in [`victoria-metrics/LOGS.md`](victoria-metrics/LOGS.md).
+are documented in [`monitoring/LOGS.md`](monitoring/LOGS.md).
 
 Dashboard verification notes and the remaining Telegram delivery check are
-in the [stack README](victoria-metrics/README.md#dashboard-verification).
+in the [stack README](monitoring/README.md#dashboard-verification).

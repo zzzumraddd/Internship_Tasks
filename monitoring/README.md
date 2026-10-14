@@ -1,4 +1,4 @@
-# VictoriaMetrics monitoring stack
+# Monitoring stack
 
 > Looking for the one-container logs tutorial instead? See
 > [`../victoria-logs/README.md`](../victoria-logs/README.md).
@@ -36,7 +36,7 @@ docker compose ps
 ```
 
 Open <http://127.0.0.1:3002>. The username and password are in your untracked
-`.env` file. The existing dashboards are provisioned into the VictoriaMetrics
+`.env` file. The existing dashboards are provisioned into the Monitoring
 folder. No data source or dashboard needs to be added through the UI.
 
 Direct dashboard links:

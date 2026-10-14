@@ -9,7 +9,7 @@ nginx JSON access logs -----^               -> Telegram alert
 
 ## Run
 
-From `victoria-metrics`, keep your existing `.env` (or copy `.env.example`
+From `monitoring`, keep your existing `.env` (or copy `.env.example`
 if you do not have one). Add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to
 `.env` for notifications. Get a bot token from Telegram's @BotFather, start
 a chat with the bot, and obtain your chat ID using the Telegram Bot API
