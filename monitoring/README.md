@@ -1,122 +1,64 @@
-# Monitoring stack
+# Loki + Alloy monitoring stack
 
-> Looking for the one-container logs tutorial instead? See
-> [`../victoria-logs/README.md`](../victoria-logs/README.md).
+This directory runs the Docker logging assignment: Alloy collects container
+logs, Loki stores them, nginx generates JSON access logs, and Grafana displays
+Logs Overview and evaluates the 5xx alert.
 
-This directory is a self-contained metrics, logs, and dashboard stack. It uses
-VictoriaMetrics for storage and vmagent for scraping; no Prometheus server is
-required. Grafana is included and automatically loads the bundled dashboards.
+See the [assignment README](../README.md) for startup, five LogQL queries, and
+Telegram setup, or [LOGS.md](LOGS.md) for the full walkthrough.
 
-## Architecture (plain English)
+## Configuration files
 
-```text
-exporters -> vmagent -> VictoriaMetrics <- Grafana
-                          ^
-                          |
-                       vmalert
-```
+| File | Purpose |
+| --- | --- |
+| `docker-compose.yml` | Services, ports, volumes, and environment variables |
+| `alloy/config.alloy` | Discover Docker containers, parse nginx status/method, send to Loki |
+| `loki/config.yml` | Single-node Loki with persistent filesystem storage |
+| `nginx/nginx.conf` | JSON access logs and demo 200/404/500 endpoints |
+| `grafana/dashboards/logs-overview.json` | 5xx graph, status pie, logs panel, container variable |
+| `grafana/provisioning/datasources/loki.yml` | Loki data source |
+| `grafana/provisioning/alerting/nginx.json` | 5xx ratio rule and notification policy |
+| `grafana/provisioning/alerting/telegram.yml` | Telegram contact point |
+| `.env` | Local credentials and ports; ignored by Git |
 
-- **vmagent** scrapes targets. Its on-disk queue prevents short storage outages
-  from immediately losing samples.
-- **VictoriaMetrics** stores metrics and serves Prometheus-compatible queries.
-- **vmalert** evaluates the existing recording rules.
-- **Grafana** uses its Prometheus data-source plugin because VictoriaMetrics
-  supports that query API.
+## Operations
 
-## Start it
-
-From this directory:
+Run these commands from this directory:
 
 ```bash
-cp .env.example .env
-# Edit .env and set a long, unique GRAFANA_ADMIN_PASSWORD.
 docker compose config --quiet
 docker compose up -d
 docker compose ps
+docker compose logs --tail=50 alloy loki nginx grafana
 ```
 
-Open <http://127.0.0.1:3002>. The username and password are in your untracked
-`.env` file. The existing dashboards are provisioned into the Monitoring
-folder. No data source or dashboard needs to be added through the UI.
-
-Direct dashboard links:
-
-- Infra Overview: <http://127.0.0.1:3002/d/infra-overview>
-- Stage 1 Overview: <http://127.0.0.1:3002/d/stage1-overview>
-- Node Exporter Full: <http://127.0.0.1:3002/d/rYdddlPWk>
-
-Allow roughly 30 seconds for the first samples to appear. To inspect scrape
-health without publishing vmagent, run:
+After editing Alloy, Loki, or nginx configuration, restart the affected service:
 
 ```bash
-docker compose exec vmagent wget -qO- http://localhost:8429/targets
+docker compose restart alloy loki nginx
 ```
 
-Stop without deleting metrics:
+After editing alert provisioning, restart Grafana. After editing `.env`,
+recreate Grafana so it receives the new Telegram environment variables:
 
 ```bash
-docker compose down
+docker compose up -d --force-recreate grafana
 ```
 
-`docker compose down -v` also deletes all stored metrics and Grafana data.
+Grafana and nginx are published on loopback only (default ports 3002 and
+8088). Alloy uses the Docker socket to discover and read containers, which
+requires host-sensitive access. Config mounts are read-only; named volumes
+preserve logs and read positions across restarts.
 
-## Why these defaults are safer
+## Earlier metrics exercise
 
-- Only Grafana is published, and only on loopback (`127.0.0.1`). VictoriaMetrics
-  and exporters accept no host connections. The bridge still permits outbound
-  traffic because Blackbox must probe public HTTPS endpoints.
-- Anonymous Grafana access and user sign-up are disabled; the password is not
-  committed to Git.
-- Images use explicit versions instead of moving `latest` tags.
-- Services drop Linux capabilities and enable `no-new-privileges` where their
-  function permits it. cAdvisor remains privileged because it must inspect the
-  Docker host; treat that container as host-sensitive.
-- Config and dashboard mounts are read-only.
+VictoriaMetrics, vmagent, vmalert, and exporters remain in this combined stack.
+Their configuration is in `prometheus.yml`, `rules.yml`, and `blackbox.yml`.
+The earlier metrics dashboards are also available in Grafana's Monitoring
+folder. The separate [VictoriaLogs exercise](../victoria-logs/README.md)
+uses its own Compose project.
 
-For access from another machine, do not change the bind address to `0.0.0.0`
-on an Internet-facing host. Put Grafana behind an HTTPS reverse proxy or VPN,
-then set `GF_SECURITY_COOKIE_SECURE=true`.
-
-## Scaling path
-
-This Compose file is a secure learning/small-host deployment, not high
-availability. Scale in stages:
-
-1. Run one `vmagent` per host or failure domain and point all of them at storage.
-2. Move storage to VictoriaMetrics cluster (`vminsert`, `vmstorage`, `vmselect`)
-   when one node no longer meets ingestion, retention, or availability needs.
-3. Put `vmauth` or a trusted authenticated TLS proxy in front of cluster read
-   and write endpoints. Never expose component ports directly.
-4. Use at least two `vmstorage` replicas across failure domains, durable disks,
-   tested backups, resource limits, and monitoring for the monitoring stack.
-5. For Kubernetes, use the VictoriaMetrics Operator rather than translating
-   this Compose file literally.
-
-Single-node VictoriaMetrics has no application-level replication, so adding a
-second single-node container does not make this deployment HA.
-
-## Files an intern will edit most often
-
-- `prometheus.yml`: scrape targets and intervals (vmagent understands Prometheus
-  scrape configuration).
-- `rules.yml`: MetricsQL/PromQL recording and alert rules.
-- `blackbox.yml`: endpoint probe behavior.
-- `.env`: local port, Grafana credentials, and retention.
-
-After a scrape-config change, validate and restart vmagent:
-
-```bash
-docker compose config --quiet
-docker compose restart vmagent
-docker compose logs --tail=100 vmagent
-```
-
-## Docker logs
-
-See [LOGS.md](LOGS.md) for Loki, Alloy, nginx, the Logs Overview dashboard,
-five LogQL queries, and the Telegram 5xx alert.
-
-### Dashboard verification
+## Dashboard verification
 
 I checked the Logs Overview dashboard using sample nginx requests:
 

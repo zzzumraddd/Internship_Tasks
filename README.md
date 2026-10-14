@@ -1,121 +1,155 @@
-# Monitoring and logs lab
+# Loki + Alloy: Docker logs assignment
 
-This branch demonstrates a complete metrics stack and a separate, minimal logs
-example. It does not run a Prometheus server.
+This branch contains my Docker logging assignment. I added Loki, Grafana Alloy,
+and nginx to the existing monitoring stack, built a Logs Overview dashboard,
+and configured a Loki-based alert with a Telegram contact point.
 
-## What is included
+## What I implemented
 
-- **VictoriaMetrics** stores metrics.
-- **vmagent** scrapes Node Exporter, cAdvisor, and Blackbox Exporter.
-- **vmalert** evaluates the recording rules.
-- **Grafana** is automatically configured with the VictoriaMetrics data source
-  and three dashboards.
-- **Loki + Alloy** collect Docker logs; nginx provides JSON access logs.
-- **Logs Overview** in Grafana shows errors, status counts, and container logs.
-- **Grafana Alerting** evaluates the Loki 5xx ratio and routes alerts to Telegram.
-- **VictoriaLogs** runs independently for JSON log ingestion and LogsQL queries.
+1. **Docker log collection:** Alloy discovers all running containers on the
+   Docker host and sends their logs to Loki, including other Compose projects.
+2. **nginx access log parsing:** nginx writes JSON to stdout. Alloy extracts
+   only `status` and `method` as access-log labels. `job` and `container`
+   identify the source; request URLs stay in the log body to limit cardinality.
+3. **Logs Overview dashboard:** a rolling five-minute 5xx count graph, a pie
+   chart by status, a logs panel, and a multi-select `$container` variable.
+4. **Five LogQL queries:** examples below cover access logs, error rate,
+   status counts, method counts, and the 5xx ratio.
+5. **Telegram alert:** Grafana evaluates a Loki query every minute and fires
+   when the five-minute 5xx ratio stays strictly above 5% for two minutes.
 
 ```text
-Node Exporter -----\
-cAdvisor -----------+--> vmagent --> VictoriaMetrics --> Grafana
-Blackbox Exporter --/                       ^
-                                            |
-                                         vmalert
-
-JSON logs -----------------------------> VictoriaLogs --> VMUI
+Docker containers -> Alloy -> Loki -> Grafana Logs Overview
+nginx JSON logs -------^                 |
+                                        +-> Loki-based alert -> Telegram
 ```
 
-## Requirements
+## Start the stack
 
-- Docker
-- Docker Compose v2 (`docker compose`)
-- `curl` for the VictoriaLogs example
-
-## Run the metrics stack with Grafana
-
-From the repository root:
+Requirements: Docker, Docker Compose v2, and curl.
 
 ```bash
 cd monitoring
+# Copy only on first setup; keep an existing .env.
 cp .env.example .env
+# Set GRAFANA_ADMIN_PASSWORD in .env.
 docker compose config --quiet
 docker compose up -d
 docker compose ps
 ```
 
-The example credentials are suitable only for this loopback-only local lab:
+Open [Logs Overview](http://127.0.0.1:3002/d/logs-overview) and sign in using
+`GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` from `.env`. The dashboard
+is provisioned into the **Monitoring** folder, and Loki is already configured
+as a data source. The default Grafana port is 3002; nginx listens on 8088.
 
-- URL: <http://127.0.0.1:3002>
-- Username: `admin`
-- Password: `change-me-to-a-long-random-password`
-
-For anything beyond local evaluation, change `GRAFANA_ADMIN_PASSWORD` in
-`monitoring/.env` before starting the stack.
-
-Grafana provisions the VictoriaMetrics data source and dashboards without any
-manual import. After signing in, open **Dashboards** and select the
-**Monitoring** folder, or use these direct links:
-
-- [Infra Overview](http://127.0.0.1:3002/d/infra-overview)
-- [Stage 1 Overview](http://127.0.0.1:3002/d/stage1-overview)
-- [Node Exporter Full](http://127.0.0.1:3002/d/rYdddlPWk)
-
-Allow roughly 30 seconds after startup for vmagent to collect the first samples.
-Confirm that the services and scrape targets are healthy with:
+Wait about 10 seconds for Docker discovery, then generate sample traffic:
 
 ```bash
-docker compose ps
-docker compose exec vmagent wget -qO- http://localhost:8429/targets
+curl http://127.0.0.1:8088/
+curl -X POST http://127.0.0.1:8088/
+curl http://127.0.0.1:8088/missing
+curl http://127.0.0.1:8088/error
 ```
 
-Detailed configuration and troubleshooting are in
-[`monitoring/README.md`](monitoring/README.md).
+The endpoints return 200, 200, 404, and 500 respectively. The pie should show
+50% for 200 and 25% each for 404 and 500 when these are the only requests in
+the selected time range. Select nginx in `$container` to inspect its logs.
+With All selected, the logs panel also displays the other containers.
 
-## Run the standalone logs example
+## Five LogQL queries
 
-VictoriaLogs is intentionally a separate Compose project. From the repository
-root, open another terminal and run:
+Paste these into Grafana Explore with the Loki data source. These standalone
+queries do not need dashboard variables.
+
+1. All nginx access logs:
+
+```logql
+{job="nginx",status=~"[1-5][0-9][0-9]"}
+```
+
+2. 5xx requests per second, averaged over five minutes:
+
+```logql
+sum(rate({job="nginx",status=~"5.."}[5m])) or vector(0)
+```
+
+3. Request count grouped by status over five minutes:
+
+```logql
+sum by (status) (count_over_time({job="nginx",status=~"[1-5][0-9][0-9]"}[5m]))
+```
+
+4. Request count grouped by method over five minutes:
+
+```logql
+sum by (method) (count_over_time({job="nginx",status=~"[1-5][0-9][0-9]"}[5m]))
+```
+
+5. 5xx percentage over five minutes (also used by the alert):
+
+```logql
+100 * (sum(count_over_time({job="nginx",status=~"5.."}[5m])) or vector(0)) / sum(count_over_time({job="nginx",status=~"[1-5][0-9][0-9]"}[5m]))
+```
+
+The zero fallback handles traffic with no errors. With no requests the ratio
+has no usable value; the rule uses `noDataState: OK`. A ratio equal to 5%
+does not fire: the threshold is strictly greater than 5%.
+
+## Telegram setup and alert
+
+Add your real credentials to `monitoring/.env`:
+
+```dotenv
+TELEGRAM_BOT_TOKEN=<your bot token>
+TELEGRAM_CHAT_ID=<your chat ID>
+```
+
+Create a bot using Telegram's @BotFather, start a chat with it, and get the
+chat ID using the Bot API `getUpdates` method. Keep these credentials out of
+Git. From `monitoring`, apply the environment changes:
 
 ```bash
-cd victoria-logs
-docker compose up -d
-docker compose ps
-
-curl --fail-with-body \
-  -H 'Content-Type: application/stream+json' \
-  --data-binary @sample.jsonl \
-  'http://127.0.0.1:9428/insert/jsonline?_stream_fields=service,level&_time_field=timestamp&_msg_field=message'
+docker compose up -d --force-recreate grafana
 ```
 
-Open the built-in VMUI at <http://127.0.0.1:9428/select/vmui> and execute:
+Test **Alerting -> Contact points -> telegram -> Test** in Grafana, then open
+**Alerting -> Alert rules -> Nginx 5xx ratio above 5%**. The rule covers all
+nginx containers independently of dashboard selection. Recovery messages
+are enabled. See [the walkthrough](monitoring/LOGS.md#check-the-dashboard-and-alert)
+for sustained test traffic.
 
-```logsql
-*
-```
+**Remaining check:** Telegram delivery requires valid credentials and has
+not been verified with a real bot.
 
-The checkout and payment messages are synthetic tutorial data from
-`victoria-logs/sample.jsonl`, not real application events. See
-[`victoria-logs/README.md`](victoria-logs/README.md) for more queries.
+## Verification
 
-## Stop the lab
+- Docker Compose configuration validated and the services started.
+- nginx access logs reached Loki with status and method labels.
+- Grafana provisioned the data source, dashboard, and alert.
+- The dashboard showed two 200 responses, one 404, and one 500 with separate
+  status slices. The rolling 5xx count returned to zero after five minutes.
+- The alert ratio query returned the expected percentage for the test traffic.
+- Loki 3.5.12 stopped the repeated metadata-counter errors seen with 3.5.0.
 
-Run the following command once in each project directory:
+## Repository layout
+
+- [`monitoring/`](monitoring/): Compose stack, Alloy/Loki/nginx configuration,
+  Grafana dashboard, and alert provisioning.
+- [`monitoring/README.md`](monitoring/README.md): configuration files and operations.
+- [`monitoring/LOGS.md`](monitoring/LOGS.md): detailed logging walkthrough.
+- [`victoria-logs/`](victoria-logs/): earlier standalone VictoriaLogs exercise.
+
+The existing VictoriaMetrics services and metrics dashboards remain in the
+combined stack from the earlier assignment. Loki stores the Docker logs for
+this assignment; the standalone VictoriaLogs exercise runs separately.
+
+## Stop
+
+From `monitoring`:
 
 ```bash
 docker compose down
 ```
 
-Add `-v` only when you also want to delete stored metrics, logs, and Grafana
-state:
-
-```bash
-docker compose down -v
-```
-
-## Docker logs assignment
-
-The Loki, Alloy, nginx, dashboard, five LogQL queries, and Telegram alert
-are documented in [`monitoring/LOGS.md`](monitoring/LOGS.md).
-
-Dashboard verification notes and the remaining Telegram delivery check are
-in the [stack README](monitoring/README.md#dashboard-verification).
+Stored data is preserved. Add `-v` only to delete the stack's persistent data.
