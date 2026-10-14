@@ -73,6 +73,9 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER in .env}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-0:disabled}
+      # Grafana provisioning otherwise coerces numeric chat IDs to numbers.
+      TELEGRAM_CHAT_ID: '"${TELEGRAM_CHAT_ID:-0}"'
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_SECURITY_COOKIE_SECURE: "false"
@@ -131,7 +134,44 @@ services:
     volumes:
       - ./blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
 
+  loki:
+    <<: *secure-service
+    image: grafana/loki:3.5.12
+    command: [-config.file=/etc/loki/config.yml]
+    expose: ["3100"]
+    volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+
+  alloy:
+    <<: *secure-service
+    image: grafana/alloy:v1.10.2
+    user: "0:0"
+    cap_add: [DAC_OVERRIDE]
+    command:
+      - run
+      - --storage.path=/alloy-data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/alloy-data
+    depends_on: [loki]
+
+  nginx:
+    <<: *secure-service
+    image: nginx:1.28.0-alpine
+    # An unprivileged port lets nginx run with all capabilities dropped.
+    user: "101:101"
+    entrypoint: [nginx, -g, "daemon off;"]
+    ports:
+      - 127.0.0.1:${NGINX_PORT:-8088}:8080
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
 volumes:
+  loki_data:
+  alloy_data:
   vm_data:
   vmagent_data:
   grafana_data:

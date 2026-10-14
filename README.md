@@ -10,6 +10,9 @@ example. It does not run a Prometheus server.
 - **vmalert** evaluates the recording rules.
 - **Grafana** is automatically configured with the VictoriaMetrics data source
   and three dashboards.
+- **Loki + Alloy** collect Docker logs; nginx provides JSON access logs.
+- **Logs Overview** in Grafana shows errors, status counts, and container logs.
+- **Grafana Alerting** evaluates the Loki 5xx ratio and routes alerts to Telegram.
 - **VictoriaLogs** runs independently for JSON log ingestion and LogsQL queries.
 
 ```text
@@ -108,3 +111,11 @@ state:
 ```bash
 docker compose down -v
 ```
+
+## Docker logs assignment
+
+The Loki, Alloy, nginx, dashboard, five LogQL queries, and Telegram alert
+are documented in [`victoria-metrics/LOGS.md`](victoria-metrics/LOGS.md).
+
+Dashboard verification notes and the remaining Telegram delivery check are
+in the [stack README](victoria-metrics/README.md#dashboard-verification).

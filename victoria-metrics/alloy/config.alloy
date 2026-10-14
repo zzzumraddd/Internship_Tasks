@@ -1,0 +1,54 @@
+// Discover every running container on this Docker host, including other projects.
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex = "/(.*)"
+    target_label = "container"
+  }
+  rule {
+    target_label = "job"
+    replacement = "docker"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex = "nginx"
+    target_label = "job"
+    replacement = "nginx"
+  }
+}
+
+loki.source.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  targets = discovery.relabel.containers.output
+  forward_to = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+  // Docker source already unwraps the Docker envelope and supplies timestamps.
+  stage.match {
+    selector = "{job=\"nginx\"}"
+    stage.json {
+      expressions = { status = "status", method = "method" }
+    }
+    stage.labels {
+      values = { status = "", method = "" }
+    }
+  }
+  // Only status and method are extracted from access logs. No URL/IP/user labels.
+  stage.label_keep {
+    values = ["job", "container", "status", "method"]
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

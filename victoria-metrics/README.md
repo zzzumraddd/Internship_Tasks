@@ -3,7 +3,7 @@
 > Looking for the one-container logs tutorial instead? See
 > [`../victoria-logs/README.md`](../victoria-logs/README.md).
 
-This directory is a self-contained metrics and dashboard stack. It uses
+This directory is a self-contained metrics, logs, and dashboard stack. It uses
 VictoriaMetrics for storage and vmagent for scraping; no Prometheus server is
 required. Grafana is included and automatically loads the bundled dashboards.
 
@@ -110,3 +110,29 @@ docker compose config --quiet
 docker compose restart vmagent
 docker compose logs --tail=100 vmagent
 ```
+
+## Docker logs
+
+See [LOGS.md](LOGS.md) for Loki, Alloy, nginx, the Logs Overview dashboard,
+five LogQL queries, and the Telegram 5xx alert.
+
+### Dashboard verification
+
+I checked the Logs Overview dashboard using sample nginx requests:
+
+- The status pie showed two `200` requests (50%), one `404` (25%), and
+  one `500` (25%). Each slice displayed its HTTP status label.
+- The 5xx graph counted the error in its rolling five-minute window, then
+  returned to zero when that request left the window.
+- The logs panel displayed logs from Docker containers. With Container set
+  to All, application errors such as Python `ConnectTimeout` also appear;
+  expand a log row to identify the container, or select it in the dropdown.
+- Grafana successfully provisioned the dashboard and Loki-based alert.
+  Updating Loki to 3.5.12 stopped the repeated structured-metadata counter
+  errors seen with 3.5.0.
+
+Telegram delivery still needs a real `TELEGRAM_BOT_TOKEN` and
+`TELEGRAM_CHAT_ID` in the untracked `.env` file. After setting them, recreate
+Grafana and test **Alerting -> Contact points -> telegram -> Test**. The
+alert checks the last five minutes of nginx access logs every minute and
+fires when the 5xx ratio stays strictly above 5% for two minutes.
