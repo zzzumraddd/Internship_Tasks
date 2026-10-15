@@ -78,7 +78,7 @@ Telegram delivery was verified on 15 October 2026: the contact-point test
 arrived at 15:39 Tashkent time, and the real nginx alert arrived at 16:00.
 The real message showed `A=10` (10% 5xx ratio) and `C=1` (threshold true),
 confirming delivery after the two-minute pending period.
-See [Telegram alert verification](../README.md#telegram-alert-verification)
+See [Telegram alert verification](../README.md#proof-telegram-notifications-received)
 for the explanation of both messages.
 
 Grafana 12.2 coerces numeric environment substitutions into numbers. The startup

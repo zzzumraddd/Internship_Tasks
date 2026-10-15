@@ -140,5 +140,5 @@ structured-metadata counter error that repeatedly logs for zero-byte metadata.
 On 15 October 2026, the contact-point test arrived at 15:39 Tashkent time.
 The actual nginx alert arrived at 16:00 with `A=10` and `C=1`: the Loki query
 returned a 10% 5xx ratio, and the greater-than-5% condition was true for two
-minutes. See [the root README](../README.md#telegram-alert-verification)
+minutes. See [the root README](../README.md#proof-telegram-notifications-received)
 for the distinction between the test message and real alert.
