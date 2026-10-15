@@ -114,7 +114,7 @@ can still be inspected. After updating `.env`, recreate Grafana:
 docker compose up -d --force-recreate grafana
 ```
 
-Use **Alerting -> Contact points -> telegram -> Test** to verify delivery.
+Use **Alerting -> Contact points -> telegram -> View -> Test** to verify delivery.
 The configuration also provisions a notification policy for `service=nginx`;
 this lab file owns Grafana's notification policy tree.
 
@@ -134,3 +134,11 @@ and [Grafana alert provisioning](https://grafana.com/docs/grafana/latest/alertin
 The status pie uses All values on the instant query, so each status row
 becomes its own slice. Loki is pinned to 3.5.12 to avoid the 3.5.0
 structured-metadata counter error that repeatedly logs for zero-byte metadata.
+
+## Verified Telegram delivery
+
+On 15 October 2026, the contact-point test arrived at 15:39 Tashkent time.
+The actual nginx alert arrived at 16:00 with `A=10` and `C=1`: the Loki query
+returned a 10% 5xx ratio, and the greater-than-5% condition was true for two
+minutes. See [the root README](../README.md#telegram-alert-verification)
+for the distinction between the test message and real alert.

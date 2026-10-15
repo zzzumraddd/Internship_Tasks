@@ -113,14 +113,14 @@ Git. From `monitoring`, apply the environment changes:
 docker compose up -d --force-recreate grafana
 ```
 
-Test **Alerting -> Contact points -> telegram -> Test** in Grafana, then open
+Test **Alerting -> Contact points -> telegram -> View -> Test** in Grafana, then open
 **Alerting -> Alert rules -> Nginx 5xx ratio above 5%**. The rule covers all
 nginx containers independently of dashboard selection. Recovery messages
 are enabled. See [the walkthrough](monitoring/LOGS.md#check-the-dashboard-and-alert)
 for sustained test traffic.
 
-**Remaining check:** Telegram delivery requires valid credentials and has
-not been verified with a real bot.
+Telegram delivery was verified with both a contact-point test and the real
+nginx 5xx alert on 15 October 2026. Details are below.
 
 ## Verification
 
@@ -131,6 +131,41 @@ not been verified with a real bot.
   status slices. The rolling 5xx count returned to zero after five minutes.
 - The alert ratio query returned the expected percentage for the test traffic.
 - Loki 3.5.12 stopped the repeated metadata-counter errors seen with 3.5.0.
+
+## Telegram alert verification
+
+I verified delivery in two stages on 15 October 2026 (Tashkent time).
+
+### Contact-point test — 15:39
+
+The first Telegram message had `alertname = TestAlert`,
+`summary = Notification test`, and `Value: B=22, C=1`. I sent it from
+Grafana's contact-point test dialog. Receiving this message confirmed that
+Grafana could use the configured bot token and chat ID to send to Telegram.
+The values are sample test data; they do not describe nginx traffic.
+
+### Real nginx alert — 16:00
+
+The second message had `alertname = Nginx 5xx ratio above 5%`,
+`service = nginx`, `severity = warning`, and `Value: A=10, C=1`.
+
+| Field in the notification | Meaning |
+| --- | --- |
+| `Firing` | The condition stayed true for the configured two-minute pending period. |
+| `A=10` | The Loki query calculated a 10% 5xx ratio over the last five minutes. |
+| `C=1` | The threshold expression was true: 10% is strictly greater than 5%. |
+| `service = nginx` | The notification policy routed the alert to Telegram. |
+| `grafana_folder = Logs` | The folder containing the alert rule in Grafana. |
+
+I generated nine successful requests and one HTTP 500 response per batch.
+The real notification confirms the complete path: nginx access logs -> Alloy
+parsing -> Loki query -> Grafana alert evaluation -> Telegram delivery.
+Grafana's alert history also showed the rule moving from Pending to Alerting.
+
+The captured messages contain links to `http://localhost:3000`. This lab
+publishes Grafana at `http://127.0.0.1:3002`, so use port 3002 when opening
+those links locally. The contact-point test's `dashboard_uid` link is sample
+data; the real alert links to `logs-overview`.
 
 ## Repository layout
 

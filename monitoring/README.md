@@ -74,11 +74,12 @@ I checked the Logs Overview dashboard using sample nginx requests:
   Updating Loki to 3.5.12 stopped the repeated structured-metadata counter
   errors seen with 3.5.0.
 
-Telegram delivery still needs a real `TELEGRAM_BOT_TOKEN` and
-`TELEGRAM_CHAT_ID` in the untracked `.env` file. After setting them, recreate
-Grafana and test **Alerting -> Contact points -> telegram -> Test**. The
-alert checks the last five minutes of nginx access logs every minute and
-fires when the 5xx ratio stays strictly above 5% for two minutes.
+Telegram delivery was verified on 15 October 2026: the contact-point test
+arrived at 15:39 Tashkent time, and the real nginx alert arrived at 16:00.
+The real message showed `A=10` (10% 5xx ratio) and `C=1` (threshold true),
+confirming delivery after the two-minute pending period.
+See [Telegram alert verification](../README.md#telegram-alert-verification)
+for the explanation of both messages.
 
 Grafana 12.2 coerces numeric environment substitutions into numbers. The startup
 script renders the chat ID into a temporary copy of provisioning so Telegram
