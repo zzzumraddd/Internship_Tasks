@@ -18,7 +18,8 @@ Telegram setup, or [LOGS.md](LOGS.md) for the full walkthrough.
 | `grafana/dashboards/logs-overview.json` | 5xx graph, status pie, logs panel, container variable |
 | `grafana/provisioning/datasources/loki.yml` | Loki data source |
 | `grafana/provisioning/alerting/nginx.json` | 5xx ratio rule and notification policy |
-| `grafana/provisioning/alerting/telegram.yml` | Telegram contact point |
+| `grafana/provisioning/alerting/telegram.yml` | Telegram contact point template |
+| `grafana/start.sh` | Render the chat ID as a string before Grafana starts |
 | `.env` | Local credentials and ports; ignored by Git |
 
 ## Operations
@@ -78,3 +79,8 @@ Telegram delivery still needs a real `TELEGRAM_BOT_TOKEN` and
 Grafana and test **Alerting -> Contact points -> telegram -> Test**. The
 alert checks the last five minutes of nginx access logs every minute and
 fires when the 5xx ratio stays strictly above 5% for two minutes.
+
+Grafana 12.2 coerces numeric environment substitutions into numbers. The startup
+script renders the chat ID into a temporary copy of provisioning so Telegram
+receives a string without literal quote characters. The token stays in `.env`
+and is expanded by Grafana; it is not written into the rendered template.

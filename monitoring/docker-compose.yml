@@ -68,14 +68,14 @@ services:
   grafana:
     <<: *secure-service
     image: grafana/grafana:12.2.0
+    entrypoint: [/bin/sh, /etc/grafana/start.sh]
     ports:
       - 127.0.0.1:${GRAFANA_PORT:-3002}:3000
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER in .env}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-0:disabled}
-      # Grafana provisioning otherwise coerces numeric chat IDs to numbers.
-      TELEGRAM_CHAT_ID: '"${TELEGRAM_CHAT_ID:-0}"'
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-0}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_SECURITY_COOKIE_SECURE: "false"
@@ -85,6 +85,7 @@ services:
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
     volumes:
+      - ./grafana/start.sh:/etc/grafana/start.sh:ro
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana

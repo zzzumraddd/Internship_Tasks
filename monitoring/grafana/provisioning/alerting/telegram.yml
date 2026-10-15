@@ -8,6 +8,6 @@ contactPoints:
         disableResolveMessage: false
         settings:
           bottoken: "$TELEGRAM_BOT_TOKEN"
-          chatid: "$TELEGRAM_CHAT_ID"
-          parse_mode: ""
+          chatid: "__TELEGRAM_CHAT_ID__"
+          parse_mode: None
           message: '{{ template "default.message" . }}'
