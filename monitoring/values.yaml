@@ -1,0 +1,29 @@
+# Helm values for prometheus-community/kube-prometheus-stack
+# No secrets live in this file. The Grafana admin credentials are read from the
+# Kubernetes Secret "grafana-admin", which scripts/deploy.sh creates from .env.
+
+grafana:
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  service:
+    type: NodePort
+    nodePort: 30300
+
+prometheus:
+  service:
+    type: NodePort
+    nodePort: 30090
+  prometheusSpec:
+    retention: 2d                  # keep data 2 days (lab setting)
+    # Pick up ServiceMonitors/PodMonitors/rules from every namespace,
+    # not only those labelled with this Helm release name.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+alertmanager:
+  service:
+    type: NodePort
+    nodePort: 30903
