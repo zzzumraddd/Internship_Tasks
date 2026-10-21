@@ -1,0 +1,123 @@
+# victoria-metrics-k8s-stack 0.96.0 — side-by-side comparison with kube-prometheus-stack (release "kps" in ns monitoring)
+#
+# Idea: VM operator converts the existing ServiceMonitors/PodMonitors/PrometheusRules
+# into VM objects, so VMAgent scrapes exactly the same targets and VMAlert evaluates
+# exactly the same rules as Prometheus. Everything the chart would add on its own
+# (exporters, scrapes, rules, dashboards, Grafana) is disabled to avoid duplicates.
+
+victoria-metrics-operator:
+  enabled: true
+  crds:
+    plain: true
+  operator:
+    disable_prometheus_converter: false
+    # Converted VM objects get garbage-collected when kps removes the source ServiceMonitor/Rule
+    enable_converter_ownership: true
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+vmsingle:
+  enabled: true
+  spec:
+    # Same as kps Prometheus (retention: 2d) for a fair disk comparison
+    retentionPeriod: "2d"
+    extraArgs:
+      # Nodes have ~3GB free: switch to read-only before the node disk fills up
+      storage.minFreeDiskSpaceBytes: "500MB"
+    storage:
+      storageClassName: local-path
+      accessModes: [ReadWriteOnce]
+      resources:
+        requests:
+          storage: 2Gi
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { memory: 768Mi }
+
+vmagent:
+  enabled: true
+  spec:
+    # Same interval as Prometheus (kps default 30s) for a fair comparison
+    scrapeInterval: 30s
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { memory: 384Mi }
+
+vmalert:
+  enabled: true
+  spec:
+    evaluationInterval: 30s
+    resources:
+      requests: { cpu: 25m, memory: 64Mi }
+      limits: { memory: 256Mi }
+
+# Own VMAlertmanager with blackhole receiver: alerts visible in its UI, nobody is notified
+alertmanager:
+  enabled: true
+  spec:
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
+  config:
+    route:
+      receiver: blackhole
+    receivers:
+      - name: blackhole
+
+# Rules come from the converted kps PrometheusRules
+defaultRules:
+  enabled: false
+# Dashboards/rules sync job downloads from GitHub — not needed
+defaultDashboards:
+  enabled: false
+syncJob:
+  enabled: false
+
+# Reuse the existing Grafana in "monitoring"; datasource added via extraObjects below
+grafana:
+  enabled: false
+
+# Existing kps exporters are reused (a second node-exporter would clash on hostPort 9100)
+prometheus-node-exporter:
+  enabled: false
+kube-state-metrics:
+  enabled: false
+
+# Control-plane / kubelet scrapes come from converted kps ServiceMonitors
+kubelet:
+  enabled: false
+kubeApiServer:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeDns:
+  enabled: false
+coreDns:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+extraObjects:
+  # Picked up by the kps Grafana datasource sidecar (watches label grafana_datasource=1 in ns monitoring)
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: victoriametrics-datasource
+      namespace: monitoring
+      labels:
+        grafana_datasource: "1"
+    data:
+      victoriametrics.yaml: |
+        apiVersion: 1
+        datasources:
+          - name: VictoriaMetrics
+            uid: victoriametrics
+            type: prometheus
+            access: proxy
+            url: http://vmsingle-vmks-victoria-metrics-k8s-stack.victoria.svc:8428
+            isDefault: false

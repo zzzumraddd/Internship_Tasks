@@ -1,0 +1,27 @@
+# Overlay for kube-prometheus-stack: persistent storage for Prometheus and Alertmanager.
+# Applied on top of ../monitoring/values.yaml (see deploy.sh), so no secrets here either.
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    # Nodes have ~3GB free: local-path doesn't enforce PVC size, so cap TSDB size
+    retentionSize: 1500MB
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 256Mi
